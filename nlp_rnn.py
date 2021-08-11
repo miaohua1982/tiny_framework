@@ -94,7 +94,7 @@ def test_predict_onebycontext(qa_ds, hidden_size, model):
 def main():
     epoches = 15
     batch_size = 100
-    path = 'dataset/qa1_single-supporting-fact_train.txt'
+    path = 'datasets/qa1_single-supporting-fact_train.txt'
     qa_ds = QA_Dataset(path)
     qa_ds.parse()
     train_dataloader = DataLoader(qa_ds, batch_size=batch_size, shuffle=True)
