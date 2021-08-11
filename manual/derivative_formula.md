@@ -1,7 +1,7 @@
 # 求导公式
 ## １、模型末端使用sigmoid作为输出，并使用cross entropy作为Loss Function的
 ## sigmoid 原始公式:
-## $y=\frac{1}{1+e^{-x}}$
+# $y=\frac{1}{1+e^{-x}}$
 ## sigmoid 求导:
 ## $y^{'}=-1\frac{1}{(1+e^{-x})^2}e^{-x}(-1) =\frac{e^{-x}}{(1+e^{-x})^2}=\frac{1}{1+e^{-x}}\frac{e^{-x}+1-1}{1+e^{-x}}=\frac{1}{1+e^{-x}}(1-\frac{1}{1+e^{-x}})=p_i(1-p_i)$
 #
@@ -21,3 +21,10 @@
 #
 
 ## ２、模型末端使用softmax作为输出，并使用cross entropy作为Loss Function的
+## softmax原始公式
+# $p_i = \frac{e^{x_i}}{\sum_{j=0}^{n}{e^{x_j}}}$
+## softmax求导
+## 当 $i=j$ 时，
+# $p_i^{'} = \frac{e^{x_i}}{\sum_{j=0}^{n}{e^{x_j}}}+(-1)\frac{e^{x_i}}{(\sum_{j=0}^{n}{e^{x_j}})^2}e^{x_j}\\ = \frac{e^{x_i}}{\sum_{j=0}^{n}{e^{x_j}}}-(\frac{e^{x_i}}{\sum_{j=0}^{n}{e^{x_j}}})^2\\ = p_i-p_i^2\\ = p_i(1-p_i)$  
+## 当 $i \neq j$时，
+# $p_i^{'} = (-1)\frac{e^{x_i}}{(\sum_{j=0}^{n}{e^{x_j}})^2}e^{x_j}\\ = (-1)\frac{e^{x_i}}{\sum_{j=0}^{n}{e^j}}\frac{e^{x_j}}{\sum_{j=0}^{n}{e^{x_j}}}\\ = -p_ip_j$
