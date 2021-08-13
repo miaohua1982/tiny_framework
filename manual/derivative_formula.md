@@ -3,7 +3,7 @@
 ## sigmoid 原始公式:
 # $y=\frac{1}{1+e^{-x}}$
 ## sigmoid 求导:
-## $y^{'}=-1\frac{1}{(1+e^{-x})^2}e^{-x}(-1) =\frac{e^{-x}}{(1+e^{-x})^2}=\frac{1}{1+e^{-x}}\frac{e^{-x}+1-1}{1+e^{-x}}=\frac{1}{1+e^{-x}}(1-\frac{1}{1+e^{-x}})=p_i(1-p_i)$
+# $y^{'}=-1\frac{1}{(1+e^{-x})^2}e^{-x}(-1) =\frac{e^{-x}}{(1+e^{-x})^2}=\frac{1}{1+e^{-x}}\frac{e^{-x}+1-1}{1+e^{-x}}=\frac{1}{1+e^{-x}}(1-\frac{1}{1+e^{-x}})=p_i(1-p_i)$
 #
 ## cross entropy 原始公式:
 ## $Loss=-y_ilogp_i-(1-y_i)log(1-p_i)$
@@ -22,9 +22,20 @@
 
 ## ２、模型末端使用softmax作为输出，并使用cross entropy作为Loss Function的
 ## softmax原始公式
-# $p_i = \frac{e^{x_i}}{\sum_{j=0}^{n}{e^{x_j}}}$
+## $p_i = \frac{e^{x_i}}{\sum_{j=0}^{n}{e^{x_j}}}$
 ## softmax求导
 ## 当 $i=j$ 时，
-# $p_i^{'} = \frac{e^{x_i}}{\sum_{j=0}^{n}{e^{x_j}}}+(-1)\frac{e^{x_i}}{(\sum_{j=0}^{n}{e^{x_j}})^2}e^{x_j}\\ = \frac{e^{x_i}}{\sum_{j=0}^{n}{e^{x_j}}}-(\frac{e^{x_i}}{\sum_{j=0}^{n}{e^{x_j}}})^2\\ = p_i-p_i^2\\ = p_i(1-p_i)$  
+## $p_i^{'} = \frac{e^{x_i}}{\sum_{j=0}^{n}{e^{x_j}}}+(-1)\frac{e^{x_i}}{(\sum_{j=0}^{n}{e^{x_j}})^2}e^{x_j}\\ = \frac{e^{x_i}}{\sum_{j=0}^{n}{e^{x_j}}}-(\frac{e^{x_i}}{\sum_{j=0}^{n}{e^{x_j}}})^2\\ = p_i-p_i^2\\ = p_i(1-p_i)$  
 ## 当 $i \neq j$时，
-# $p_i^{'} = (-1)\frac{e^{x_i}}{(\sum_{j=0}^{n}{e^{x_j}})^2}e^{x_j}\\ = (-1)\frac{e^{x_i}}{\sum_{j=0}^{n}{e^j}}\frac{e^{x_j}}{\sum_{j=0}^{n}{e^{x_j}}}\\ = -p_ip_j$
+## $p_i^{'} = (-1)\frac{e^{x_i}}{(\sum_{j=0}^{n}{e^{x_j}})^2}e^{x_j}\\ = (-1)\frac{e^{x_i}}{\sum_{j=0}^{n}e^{x_j}}\frac{e^{x_j}}{\sum_{j=0}^{n}{e^{x_j}}}\\ = -p_ip_j$
+
+## 可以得到：
+## $\frac{dp}{dx_i}= \begin{cases} p_i(1-p_i),&i=j \\ -p_ip_j,&i \neq j \end{cases}$
+## 同时交叉熵损失函数为 $Loss={\sum_{j=0}^{n}{-y_ilogp_i}}$(这里比较一下前面二元的cross_entropy损失函数 $Loss=-y_ilogp_i-(1-y_i)log(1-p_i)$,这两个其实是同一个公式，取决于输入的目标值是形如（Ｎ，）的单列函数（同时列向量中每个元素的取值为０～n_classes-1)，或者形如（N,n_classes)的０／１矩阵, 这里Ｎ表示样本数量，n_classes表示类别数量)
+## 其导数为 $dLoss/dp_i = -1/p_i$ 
+## 那么，$dLoss/dx_i = \frac{dLoss}{dp_i}\frac{dp_i}{dx_i} = \begin{cases} p_i(1-p_i)*-1/p_i=p_i-1,&i=j \\ -p_ip_j*-1/p_i=p_j,&i \neq j \end{cases}$
+## 这里我们也可以统一到 $dLoss/dx_i = p-y$
+## y为one-hot编码矩阵，例如　
+## $\left[\begin{array} {cccc} ０&０&１&０\\ ０&０&１&０\\ ０&０&０&１\\ １&０&０&０ \end{array} \right]$
+## p为模型最后层输出后的softmax结果，其shape与ｙ相同，都是N*m，N为本批次样本数，ｍ为类别数量
+

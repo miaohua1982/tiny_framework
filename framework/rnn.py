@@ -29,6 +29,54 @@ class RNNCell(Layer):
     def __repr__(self):
         return self.name+':[\n'+super().__repr__()+'\n]\n'
 
+class LstmCell(Layer):
+    def __init__(self, embedding_size, hidden_size, output_size):
+        super(RNNCell, self).__init__()
+        self.name = self.get_name('LstmCell_')
+
+        # forget gate
+        self.forget_weights_h = LinearLayer(hidden_size, hidden_size)
+        self.forget_weights_i = LinearLayer(embedding_size, hidden_size)
+
+        # input gate
+        self.input_weights_h = LinearLayer(hidden_size, hidden_size)
+        self.input_weights_i = LinearLayer(embedding_size, hidden_size)
+
+        # output gate
+        self.output_weights_h = LinearLayer(hidden_size, hidden_size)
+        self.output_weights_i = LinearLayer(embedding_size, hidden_size)
+        
+        # update
+        self.update_weights_h = LinearLayer(hidden_size, hidden_size)
+        self.update_weights_i = LinearLayer(embedding_size, hidden_size)
+        
+        # output 
+        self.output = LinearLayer(hidden_size, output_size)
+
+        # add to parameters list   
+        self.parameters = self.forget_weights_h.get_parameters()+self.forget_weights_i.get_parameters()+\
+                          self.input_weights_h.get_parameters()+self.input_weights_i.get_parameters()+\
+                          self.forget_weights_h.get_parameters()+self.forget_weights_i.get_parameters()+\
+                          self.input_weights_h.get_parameters()+self.input_weights_i.get_parameters()+\
+                          self.output.get_parameters()
+
+    def forward(self, input, hidden):
+        prev_hidden, prev_c = hidden
+
+        f = (self.forget_weights_h.forward(prev_hidden) + self.forget_weights_i.forward(input)).sigmoid()
+        i = (self.input_weights_h.forward(prev_hidden) + self.input_weights_i.forward(input)).sigmoid()
+        o = (self.output_weights_h.forward(prev_hidden) + self.output_weights_i.forward(input)).sigmoid()
+        u = (self.update_weights_h.forward(prev_hidden) + self.update_weights_i.forward(input)).tanh()
+        
+        cell_state = f*prev_c + i*u
+        hidden_state = o*cell_state.tanh()
+        output = self.output.forward(hidden_state)
+        
+        return output, (hidden_state, cell_state)
+    
+    def __repr__(self):
+        return self.name+':[\n'+super().__repr__()+'\n]\n'
+
 class RNN_Model(Sequential):
     def __init__(self, embedding_size, hidden_size, vocab_size):
         super(RNN_Model, self).__init__()

@@ -7,7 +7,7 @@ class ItemIdGen(object):
     def __init__(self):
         self.gen_id = {}
         
-        self.default_items = ['Linear_Weights_', 'Linear_Bias_', 'Sequential_', 'RNNCell_', 'Embedding_Weights_', 'Sigmoid_', 'Tanh_']
+        self.default_items = ['Linear_Weights_', 'Linear_Bias_', 'Sequential_', 'RNNCell_', 'LstmCell_', 'Embedding_Weights_', 'Sigmoid_', 'Tanh_']
         for one_item in self.default_items:
             self.gen_id[one_item] = 0
     
