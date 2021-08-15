@@ -31,7 +31,7 @@ class RNNCell(Layer):
 
 class LstmCell(Layer):
     def __init__(self, embedding_size, hidden_size, output_size):
-        super(RNNCell, self).__init__()
+        super(LstmCell, self).__init__()
         self.name = self.get_name('LstmCell_')
 
         # forget gate
@@ -53,20 +53,24 @@ class LstmCell(Layer):
         # output 
         self.output = LinearLayer(hidden_size, output_size)
 
+        # activation
+        self.sigmoid = Sigmoid()
+        self.tanh = Tanh()
+
         # add to parameters list   
-        self.parameters = self.forget_weights_h.get_parameters()+self.forget_weights_i.get_parameters()+\
-                          self.input_weights_h.get_parameters()+self.input_weights_i.get_parameters()+\
-                          self.forget_weights_h.get_parameters()+self.forget_weights_i.get_parameters()+\
-                          self.input_weights_h.get_parameters()+self.input_weights_i.get_parameters()+\
+        self.parameters = self.forget_weights_h.get_parameters()+self.forget_weights_i.get_parameters()+self.sigmoid.get_parameters()+\
+                          self.input_weights_h.get_parameters()+self.input_weights_i.get_parameters()+self.sigmoid.get_parameters()+\
+                          self.output_weights_h.get_parameters()+self.output_weights_i.get_parameters()+self.sigmoid.get_parameters()+\
+                          self.update_weights_h.get_parameters()+self.update_weights_i.get_parameters()+self.tanh.get_parameters()+\
                           self.output.get_parameters()
 
     def forward(self, input, hidden):
         prev_hidden, prev_c = hidden
 
-        f = (self.forget_weights_h.forward(prev_hidden) + self.forget_weights_i.forward(input)).sigmoid()
-        i = (self.input_weights_h.forward(prev_hidden) + self.input_weights_i.forward(input)).sigmoid()
-        o = (self.output_weights_h.forward(prev_hidden) + self.output_weights_i.forward(input)).sigmoid()
-        u = (self.update_weights_h.forward(prev_hidden) + self.update_weights_i.forward(input)).tanh()
+        f = self.sigmoid(self.forget_weights_h.forward(prev_hidden) + self.forget_weights_i.forward(input))
+        i = self.sigmoid(self.input_weights_h.forward(prev_hidden) + self.input_weights_i.forward(input))
+        o = self.sigmoid(self.output_weights_h.forward(prev_hidden) + self.output_weights_i.forward(input))
+        u = self.tanh(self.update_weights_h.forward(prev_hidden) + self.update_weights_i.forward(input))
         
         cell_state = f*prev_c + i*u
         hidden_state = o*cell_state.tanh()
@@ -92,4 +96,19 @@ class RNN_Model(Sequential):
         output, hidden = self.rnn.forward(word_embeds, hidden)
         
         return output, hidden
+
+class Lstm_Model(Sequential):
+    def __init__(self, embedding_size, hidden_size, vocab_size):
+        super(Lstm_Model, self).__init__()
         
+        self.word_embedding = EmbeddingLayer(vocab_size, embedding_size)
+        self.lstm = LstmCell(embedding_size, hidden_size, vocab_size)
+        
+        self.add(self.word_embedding)
+        self.add(self.lstm)
+        
+    def forward(self, input, hidden):
+        word_embeds = self.word_embedding.forward(input)
+        output, hidden = self.lstm.forward(word_embeds, hidden)
+        
+        return output, hidden

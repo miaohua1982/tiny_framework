@@ -1,5 +1,5 @@
 from framework.tensor import Tensor
-from framework.rnn import RNN_Model
+from framework.rnn import RNN_Model, Lstm_Model
 import numpy as np
 
 # print tensor 
@@ -11,4 +11,7 @@ word_embedding_size = 64
 hidden_size = 64
 vocab_size = 1024
 model = RNN_Model(word_embedding_size, hidden_size, vocab_size)
+print(model)
+
+model = Lstm_Model(word_embedding_size, hidden_size, vocab_size)
 print(model)

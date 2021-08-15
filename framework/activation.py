@@ -10,6 +10,9 @@ class Sigmoid(Layer):
     def forward(self, x):
         return x.sigmoid()
 
+    def __call__(self, x):
+        return x.sigmoid()
+    
     def __repr__(self):
         return '['+self.name+'Tensor()]'
     
@@ -21,5 +24,8 @@ class Tanh(Layer):
     def forward(self, x):
         return x.tanh()
 
+    def __call__(self, x):
+        return x.tanh()
+    
     def __repr__(self):
         return '['+self.name+'Tensor()]'

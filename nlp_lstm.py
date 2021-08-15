@@ -16,7 +16,7 @@ def makeup_str(r):
     return r
 
 def train(epoches, datasets, word2ind, model, criterion, optim, hidden_size):
-    batch_size = 8
+    batch_size = 16
     bppt = 25
 
     n_batches = len(datasets)//batch_size

@@ -97,9 +97,12 @@ class EmbeddingLayer(Layer):
 
 # add layers supportion(layer container)
 class  Sequential(Layer):
-    def __init__(self, layers=list()):
+    def __init__(self, layers=None):
         super(Sequential, self).__init__()
-        self.layers = layers
+        if layers is None:
+            self.layers = []
+        else:
+            self.layers = layers
         self.name = self.get_name('Sequential_')
 
     def get_parameters(self):
