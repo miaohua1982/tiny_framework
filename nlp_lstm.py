@@ -7,15 +7,7 @@ from framework.rnn import RNN_Model
 from framework.loss import CrossEntropyLoss
 from framework.optimizer import SGD
 
-def makeup_str(r):
-    no_needs = ['0','1','2','3','4','5','6','7','8','9','\n','\t']
-    for n in no_needs:
-        r = r.replace(n, ' ')
-    for s in string.punctuation:
-        r = r.replace(s, ' '+s+' ')
-    return r
-
-def train(epoches, datasets, word2ind, model, criterion, optim, hidden_size):
+def train(epoches, datasets, model, criterion, optim, hidden_size):
     batch_size = 16
     bppt = 25
 
@@ -93,7 +85,7 @@ def main():
     criterion = CrossEntropyLoss()
     optim = SGD(parameters=model.get_parameters(), alpha=0.005)
 
-    train(epoches, inputs, word2ind, model, criterion, optim, hidden_size)
+    train(epoches, inputs, model, criterion, optim, hidden_size)
     predict_byinit(word2ind, ind2word, 'T', hidden_size, model)
 
 if __name__ == '__main__':
