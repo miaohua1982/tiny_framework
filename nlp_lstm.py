@@ -9,40 +9,52 @@ from framework.optimizer import SGD
 
 def train(epoches, datasets, model, criterion, optim, hidden_size):
     batch_size = 16
-    bppt = 25
+    bptt = 25
 
     n_batches = len(datasets)//batch_size
     datasets = datasets[:batch_size*n_batches]
-    datasets = datasets.reshape(n_batches, batch_size)
-    n_bppt_bs = n_batches//bppt
-    datasets = datasets[:n_bppt_bs*bppt]
-    datasets = datasets.reshape(n_bppt_bs, bppt, batch_size)
+    datasets = datasets.reshape(batch_size, n_batches).transpose()
+    input_batched_indices = datasets[0:-1]
+    target_batched_indices = datasets[1:]
+    n_bptt = int(((n_batches-1) / bptt))
+    input_batches = input_batched_indices[:n_bptt*bptt].reshape(n_bptt, bptt, batch_size)
+    target_batches = target_batched_indices[:n_bptt*bptt].reshape(n_bptt, bptt, batch_size)
+    
 
     for epoch in range(epoches):
         total_acc = 0
         total_loss = 0
         counter = 0
-        
-        for i in range(0, n_bppt_bs):
+                    
+        cur_loss_arr = []
+        for i in range(0, n_bptt):
             optim.zero_grad()
-            hidden = Tensor(np.zeros((bppt, hidden_size)), autograd=True)
-            for j in range(batch_size-1):
-                x = datasets[i, :, j]
-                y = datasets[i, :, j+1]
+            hidden = Tensor(np.zeros((batch_size, hidden_size)), autograd=True)
+            for j in range(bptt):
+                x = input_batches[i, j]
+                y = target_batches[i, j]
             
                 input = Tensor(x, autograd=True)
                 target = Tensor(y, autograd=True)
 
                 pred, hidden = model.forward(input, hidden)
-
                 loss = criterion(pred, target)
-                acc = (pred.data.argmax(axis=1) == target.data).mean()
-                total_loss += loss[0]
-                total_acc += acc
-                counter += 1
+
+                if j == 0:
+                    cur_loss_arr.append(loss)
+                else:
+                    cur_loss_arr.append(loss+cur_loss_arr[-1])
             
-                loss.backward()
+            acc = (pred.data.argmax(axis=1) == target.data).mean()
+            total_acc += acc
+            cur_loss = cur_loss_arr[-1]
+            total_loss += cur_loss[0]/bptt
+            counter += 1
+            
+            cur_loss.backward()
             optim.step()
+
+        optim.decay_lr()
             
         print('In epoch %d, nn gets loss %.4f, acc %.4f' % (epoch, total_loss/counter, total_acc/counter))
 
@@ -61,7 +73,7 @@ def predict_byinit(word2ind, ind2word, init_char, hidden_size, model, max_len=10
     print('-'*64)
 
 def main():
-    epoches = 100
+    epoches = 10
     path = 'datasets/shakespear.txt'
     f = open(path, 'r')
     raw = f.read()
@@ -83,7 +95,7 @@ def main():
     vocab_size = len(vocab)
     model = RNN_Model(word_embedding_size, hidden_size, vocab_size)
     criterion = CrossEntropyLoss()
-    optim = SGD(parameters=model.get_parameters(), alpha=0.005)
+    optim = SGD(parameters=model.get_parameters(), alpha=0.005, decay=0.99)
 
     train(epoches, inputs, model, criterion, optim, hidden_size)
     predict_byinit(word2ind, ind2word, 'T', hidden_size, model)
