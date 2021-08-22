@@ -88,7 +88,7 @@ class LinearLayer(Layer):
 class EmbeddingLayer(Layer):
     def __init__(self, vocab_size, hidden_size):
         super().__init__()
-        w = np.random.rand(vocab_size, hidden_size)
+        w = (np.random.rand(vocab_size, hidden_size)-0.5)/hidden_size
         self.embedding_weights = Tensor(w, autograd=True)
         self.parameters.append(Parameter(self.get_name('Embedding_Weights_'), self.embedding_weights))
 
