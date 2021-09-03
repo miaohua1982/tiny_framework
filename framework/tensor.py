@@ -64,7 +64,7 @@ class Tensor(object):
             return Tensor(self.data*other.data, autograd=True, creator=(self, other), create_op='mul')
         return Tensor(self.data*other.data)
         
-    def sum(self, dim):
+    def sum(self, dim=0):
         assert self.data.ndim>dim, 'axis %d is out of bounds for array of dimension %d' % (dim, self.data.ndim)
         if self.autograd:
             return Tensor(self.data.sum(dim), autograd=True, creator=(self,), create_op='sum_'+str(dim))
@@ -103,6 +103,122 @@ class Tensor(object):
             return Tensor(new, autograd=True, creator=(self,), create_op='sigmoid')
         return Tensor(new)
     
+    def max_pool2d(self, kernel_size, stride, padding):
+        assert self.data.ndim == 4, "the shape of input data must be 4 in max_pool2d"
+        assert self.data.shape[2] >= kernel_size and  self.data.shape[3] >= kernel_size, "the width and height of input data must be greater or equal than kernel size"
+
+        bs, inns, h, w = self.data.shape
+        dh = (h-kernel_size)//stride+1
+        dw = (w-kernel_size)//stride+1
+
+        output_max = np.zeros(bs, inns, dh, dw)
+        output_max_inds = np.zeros(bs, inns, dh, dw*2)
+        for b in range(bs):
+            for ins in range(inns):
+                for i in range(0, h-kernel_size+1, stride):
+                    for j in range(0, w-kernel_size+1, stride):
+                        # output_max[b,:,i//stride,j//stride] = np.max(self.data[b,:,i:i+kernel_size,j:j+kernel_size], axis=(1,2))
+                        pos_h = i//stride
+                        pos_w = j//stride
+                        max_val = -10000000
+                        max_pos_h = -1
+                        max_pos_w = -1
+                        for kh in range(i, i+kernel_size):
+                            for kw in range(j, j+kernel_size):
+                                if max_val < self.data[b, ins, kh, kw]:
+                                    max_val = self.data[b, ins, kh, kw]
+                                    max_pos_h = kh
+                                    max_pos_w = kw
+                        output_max[b,ins,pos_h,pos_w] = max_val
+                        output_max_inds[b,ins,pos_h,pos_w*2] = max_pos_h
+                        output_max_inds[b,ins,pos_h,pos_w*2+1] = max_pos_w
+        
+        if self.autograd:
+            new = Tensor(output_max, autograd=True, creator=(self,), create_op='max_pool2d')
+            new.output_max_inds = output_max_inds
+            new.org_shape = self.data.shape
+            return new
+        return Tensor(output_max)
+    
+    def conv2d_subarea(self, ind_h, ind_w, kernel_size, padding):
+        
+        w = kernel_size
+        if ind_w >= padding:
+            sw = ind_w-padding
+            pos_ws = 0
+        else:
+            sw = 0
+            w = kernel_size-(padding-ind_w)
+            pos_ws = padding-ind_w
+        
+        h = kernel_size
+        if ind_h >= padding:
+            sh = ind_h-padding
+            pos_hs = 0
+        else:
+            sh = 0
+            h = kernel_size-(padding-ind_h)
+            pos_hs = padding-ind_h
+        
+
+
+    def conv2d(self, input_channels, output_channels, kernel, bias, stride=1, padding=0):
+        assert kernel.data.ndim == 4, "the shape of kernel must be 4 in conv2d"
+        assert kernel.data.shape[0] == output_channels, "first dim size must be equal to output_channels"
+        assert kernel.data.shape[1] == input_channels, "second dim size must be equal to input_channels"
+        assert self.data.ndim == 4, "the shape of input data must be 4 in conv2d"
+        assert self.data.shape[2] >= kernel.data.shape[0] and self.data.shape[3] >= kernel.data.shape[1], "the shape of input data must be greater than kernel shape"
+        assert stride >= 1, "stride must be greater or equal than 1"
+        assert padding >= 0, "padding must be greater or equal than 0"
+
+        _, _, kh, kw = kernel.shape
+        db, inns, dh, dw = self.shape
+        output_width = (dw+padding*2-kw)//stride+1
+        output_height = (dh+padding*2-kh)//stride+1
+
+        input_data = self.data
+        if padding > 0:
+            input_data = np.zeros((db, inns, dh+padding*2, dw+padding*2))
+            input_data[:,:,padding:padding+dh, padding:padding+dw] = self.data
+        
+        output = np.zeros((db, output_channels, output_height, output_width))
+        for b in range(db):
+            for out in range(output_channels):
+                for i in range(0, dh+padding*2-kh+1, stride):
+                    for j in range(0, dw+padding*2-kw+1, stride):
+                        input = input_data[b, :, i:i+kh, j:j+kw]
+                        s = input*kernel.data[out]
+                        output[b, out, i//stride, j//stride] = s.sum()
+        if bias is not None:
+            bias_r = bias.reshape(output_channels, 1, 1).repeat(output_height, axis=1).repeat(output_width, axis=2)
+            output += bias_r
+        
+        if self.autograd:
+            if bias is not None:
+                new = Tensor(output, autograd=True, creator=(self, kernel, bias), create_op='conv2d')
+                new.has_bias = True
+            else:
+                new = Tensor(output, autograd=True, creator=(self, kernel), create_op='conv2d')
+                new.has_bias = False
+            new.stride = stride
+            new.padding = padding
+            
+            if padding > 0 :
+                new.padding_input_data = input_data
+            return new
+        
+        return Tensor(output)
+
+    def flatten(self):
+        new_data = self.data.flatten()
+        if self.autograd:
+            new = Tensor(new_data, autograd=True, creator=(self,), create_op='flatten')
+            new.org_shape = self.data.shape
+            return new
+        
+        return Tensor(new_data)
+
+
     def tanh(self):
         if self.autograd:
             return Tensor(np.tanh(self.data), autograd=True, creator=(self,), create_op='tanh')
@@ -215,7 +331,58 @@ class Tensor(object):
                 new = self.grad.expand(dim, copies)
                 new.data = new.data*1.0/copies
                 self.creator[0].backward(new, self)
+            elif self.create_op == 'flatten':
+                new_grad = self.grad.data.reshape(self.org_shape)
+                self.creator[0].backward(Tensor(new_grad), self)
+            elif self.create_op == 'max_pool2d':
+                new_grad = np.zeros(self.org_shape)
+                bs, inns, _, _ = self.output_max_inds.shape
+                _, _, gh, gw = self.grad.shape
+                for b in range(bs):
+                    for ins in range(inns):
+                        for i in range(gh):
+                            for j in range(gw):
+                                pos_h = self.output_max_inds[b, ins, i, j*2]
+                                pos_w = self.output_max_inds[b, ins, i, j*2+1]
+                                new_grad[b, ins, pos_h, pos_w] = self.grad[b, ins, i, j]
+                self.creator[0].backward(Tensor(new_grad), self)
 
+            elif self.create_op == 'conv2d':
+                bs, input_channels, dh, dw = self.creator[0].shape
+                output_channels, ki, kh, kw = self.creator[1].shape
+                
+                # grad for bias
+                if self.has_bias:
+                    grad_bias = self.grad.sum(axis=(0,2,3))
+                    self.creator[2].backward(grad_bias, self)
+
+                # grad for kernel
+                input_data = self.creator[0].data
+                padding = self.padding
+                if padding>0:
+                    input_data = self.padding_input_data
+                grad_kernel = np.zeros((output_channels, input_channels, kh, kw))
+                for b in range(bs):
+                    for out in range(output_channels):
+                        for i in range(0, dh+padding*2-kh+1, self.stride):
+                            for j in range(0, dw+padding*2-kw+1, self.stride):
+                                input = input_data[b, :, i:i+kh, j:j+kw]  # input_channels*kh*kw
+                                grad_kernel[out] += input*self.grad.data[b, out, i//self.stride, j//self.stride]
+                if padding>0:
+                    del self.padding_input_data
+                self.creator[1].backward(grad_kernel, self)
+
+                # grad for input data
+                kernel = self.creator[1].data
+                grad_input = np.zeros((bs, input_channels, dh+padding*2, dw+padding*2))
+                for b in range(bs):
+                    for out in range(output_channels):
+                        for i in range(0, dh+padding*2-kh+1, self.stride):
+                            for j in range(0, dw+padding*2-kw+1, self.stride):
+                                grad_input[b, :, i:i+kh, j:j+kw] += kernel[out]*self.grad.data[b, out, i//self.stride, j//self.stride]
+                self.creator[0].backward(grad_input[:,:,padding:dh+padding,padding:dw+padding], self)
+      
+            
     def zero_grad(self):
         self.grad = None
        

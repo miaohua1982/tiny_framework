@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.insert(0,os.path.dirname(os.path.abspath(__file__))+os.path.sep+os.path.pardir+os.path.sep)
+
 from framework.tensor import Tensor
 from framework.rnn import RNN_Model, Lstm_Model
 import numpy as np

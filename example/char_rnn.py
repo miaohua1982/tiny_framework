@@ -1,37 +1,6 @@
 import numpy as np
 np.random.seed(0)
 
-path = 'datasets/shakespear.txt'
-f = open(path, 'r')
-raw = f.read()
-f.close()
-
-vocab = sorted(list(set(raw)))
-word2ind = {}
-ind2word = {}
-
-ind = 0
-for one_word in vocab:
-    word2ind[one_word] = ind
-    ind2word[ind] = one_word
-    ind += 1
-inputs = np.array(list(map(lambda x: word2ind[x], raw)))
-print(word2ind)
-
-batch_size = 32
-bptt = 16
-
-datasets = inputs
-n_batches = len(datasets)//batch_size
-datasets = datasets[:batch_size*n_batches]
-datasets = datasets.reshape(batch_size, n_batches).transpose()
-input_batched_indices = datasets[0:-1]
-target_batched_indices = datasets[1:]
-n_bptt = int(((n_batches-1) / bptt))
-input_batches = input_batched_indices[:n_bptt*bptt].reshape(n_bptt, bptt, batch_size)
-target_batches = target_batched_indices[:n_bptt*bptt].reshape(n_bptt, bptt, batch_size)
-print('input batches', input_batches.shape, 'target batches', target_batches.shape)
-
 def softmax(pred):
     y = np.exp(pred).sum(axis=1, keepdims=True)
     return np.exp(pred)/y
@@ -77,7 +46,7 @@ def calc_acc_bs(pred, gt):
 def sigmoid(x):
     return 1/(1+np.exp(-x))
 
-def forward(x, h=None):
+def forward(x, h=None, do_softmax=True):
     preds = []
     hidden_state = []
     
@@ -88,7 +57,11 @@ def forward(x, h=None):
     for word in x:
         word_vec = word_embed[word].dot(input_layer)
         h = sigmoid(h.dot(transition_layer)+word_vec)
-        pred = softmax(h.dot(output_layer))
+        if do_softmax:
+            pred = softmax(h.dot(output_layer))
+        else:
+            pred = h.dot(output_layer)
+
         
         preds.append(pred)
         hidden_state.append(h)
@@ -153,39 +126,84 @@ def step(input_layer_delta, output_layer_delta, transition_layer_delta, word_emb
     word_embed -= alpha*word_embed_delta/num
     h0 -= h0_delta/num
 
-def predict_byinit_random(word2ind, ind2word, init_char, hidden_size, max_len=100):
+def predict_byinit(word2ind, ind2word, init_char, hidden_size, max_len=100):
     s = ""
     
     input = np.array([word2ind[init_char]])
     hidden = np.zeros((1, hidden_size))
     for i in range(max_len):
-        pred, hidden = forward(input, hidden)
+        preds, hiddens = forward(input, hidden, False)
         #
-        #pred.data *= 10
-        temp_dist = softmax(pred)
-        temp_dist /= temp_dist.sum()
-        pred_y = (temp_dist > np.random.rand()).argmax()
-        #pred_y = pred.data.argmax(axis=1)[0]
+        pred = softmax(preds[-1])
+        hidden = hiddens[-1]
+        pred_y = pred.argmax(axis=1)[0]
         #
         s += ind2word[pred_y]
         input = np.array([pred_y])
         
     return s
 
-alpha = 0.001
+def predict_byinit_random(word2ind, ind2word, init_char, hidden_size, max_len=100):
+    s = ""
+    
+    input = np.array([word2ind[init_char]])
+    hidden = np.zeros((1, hidden_size))
+    for i in range(max_len):
+        preds, hiddens = forward(input, hidden)
+        #
+        pred = softmax(preds[-1]*10)
+        pred /= pred.sum()
+        hidden = hiddens[-1]
+        pred_y = (pred > np.random.rand()).argmax(axis=1)[0]
+        #
+        s += ind2word[pred_y]
+        input = np.array([pred_y])
+        
+    return s
+
+path = 'datasets/shakespear.txt'
+f = open(path, 'r')
+raw = f.read()
+f.close()
+
+vocab = sorted(list(set(raw)))
+word2ind = {}
+ind2word = {}
+
+ind = 0
+for one_word in vocab:
+    word2ind[one_word] = ind
+    ind2word[ind] = one_word
+    ind += 1
+inputs = np.array(list(map(lambda x: word2ind[x], raw)))
+print(word2ind)
+
+alpha = 0.01
 hidden_size = 512
 vocab_len = len(vocab)
 batch_size = 32
 bptt = 16
 
-word_embed = np.random.normal(0, 0.1, (vocab_len, hidden_size))-0.05
-input_layer = np.random.normal(0,0.1, (hidden_size, hidden_size))-0.05
-transition_layer = np.eye(hidden_size)
-output_layer = np.random.normal(0,0.1, (hidden_size, vocab_len))-0.05
+datasets = inputs
+n_batches = len(datasets)//batch_size
+datasets = datasets[:batch_size*n_batches]
+datasets = datasets.reshape(batch_size, n_batches).transpose()
+input_batched_indices = datasets[0:-1]
+target_batched_indices = datasets[1:]
+n_bptt = int(((n_batches-1) / bptt))
+input_batches = input_batched_indices[:n_bptt*bptt].reshape(n_bptt, bptt, batch_size)
+target_batches = target_batched_indices[:n_bptt*bptt].reshape(n_bptt, bptt, batch_size)
+print('input batches', input_batches.shape, 'target batches', target_batches.shape)
+
+
+word_embed = (np.random.rand(vocab_len, hidden_size)-0.5)/hidden_size
+input_layer = np.random.rand(hidden_size, hidden_size)*np.sqrt(2.0/hidden_size)
+transition_layer = np.random.rand(hidden_size, hidden_size)*np.sqrt(2.0/hidden_size)  #np.eye(hidden_size)
+output_layer = np.random.rand(hidden_size, vocab_len)*np.sqrt(2.0/hidden_size)
 h0 = np.zeros((batch_size, hidden_size))
 print('we have words', vocab_len)
 
-epoches = 10
+epoches = 30
 for epoch in range(epoches):
     loss = 0.0
     accuracy = 0.0
@@ -204,5 +222,12 @@ for epoch in range(epoches):
     print("Perplexity:", np.exp(cur_loss/n_bptt/bptt))
     print('In epoch %d, train loss:%.4f, acc:%.4f' % (epoch, loss/n_bptt/bptt, accuracy/n_bptt/bptt))
 
-init_char = '\n'
-predict_byinit_random(word2ind, ind2word, init_char, hidden_size, max_len=1000)
+init_char = 'H'
+s = predict_byinit(word2ind, ind2word, init_char, hidden_size, max_len=1000)
+print('reguler predict result:')
+print(s)
+
+s = predict_byinit_random(word2ind, ind2word, init_char, hidden_size, max_len=1000)
+s = s.replace('\n',' ')
+print('random predict result:')
+print(s)

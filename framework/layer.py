@@ -7,7 +7,7 @@ class ItemIdGen(object):
     def __init__(self):
         self.gen_id = {}
         
-        self.default_items = ['Linear_Weights_', 'Linear_Bias_', 'Sequential_', 'RNNCell_', 'LstmCell_', 'Embedding_Weights_', 'Sigmoid_', 'Tanh_']
+        self.default_items = ['Conv2d_', 'Conv2d_Weights_', 'Conv2d_Bias_', 'MaxPool2d_', 'Linear_Weights_', 'Linear_Bias_', 'Sequential_', 'RNNCell_', 'LstmCell_', 'Embedding_Weights_', 'Sigmoid_', 'Tanh_']
         for one_item in self.default_items:
             self.gen_id[one_item] = 0
     
@@ -36,9 +36,6 @@ class Parameter(object):
     def get_value(self):
         return self.value
 
-    def backward(self, grad):
-        self.value.backward(grad)
-    
     def step(self, alpha):
         self.value.step(alpha)
         
@@ -87,7 +84,7 @@ class LinearLayer(Layer):
 
 class EmbeddingLayer(Layer):
     def __init__(self, vocab_size, hidden_size):
-        super().__init__()
+        super(EmbeddingLayer, self).__init__()
         w = (np.random.rand(vocab_size, hidden_size)-0.5)/hidden_size
         self.embedding_weights = Tensor(w, autograd=True)
         self.parameters.append(Parameter(self.get_name('Embedding_Weights_'), self.embedding_weights))
@@ -95,6 +92,18 @@ class EmbeddingLayer(Layer):
     def forward(self, words):
         return self.embedding_weights.index_select(words)
 
+class MaxPool2d(Layer):
+    def __init__(self, kernel_size, stride, padding=0):
+        super(MaxPool2d, self).__init__()
+        self.parameters.append(Parameter(self.get_name('MaxPool2d_'), Tensor([])))
+
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+
+    def forward(self, input):
+        return input.max_pool2d(self.kernel_size, self.stride, self.padding)
+    
 # add layers supportion(layer container)
 class  Sequential(Layer):
     def __init__(self, layers=None):
