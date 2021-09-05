@@ -29,3 +29,17 @@ class Tanh(Layer):
     
     def __repr__(self):
         return '['+self.name+'Tensor()]'
+
+class Relu(Layer):
+    def __init__(self):
+        super(Relu, self).__init__()
+        self.parameters.append(Parameter(self.get_name('Relu_'), Tensor([])))
+
+    def forward(self, x):
+        return x.relu()
+
+    def __call__(self, x):
+        return x.relu()
+    
+    def __repr__(self):
+        return '['+self.name+'Tensor()]'

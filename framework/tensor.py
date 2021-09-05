@@ -63,14 +63,19 @@ class Tensor(object):
         if self.autograd and other.autograd:
             return Tensor(self.data*other.data, autograd=True, creator=(self, other), create_op='mul')
         return Tensor(self.data*other.data)
-        
+    
+    def __eq__(self, other):
+        if self.autograd and other.autograd:
+            return Tensor(self.data==other.data, autograd=True, creator=(self, other), create_op='eq')
+        return Tensor(self.data==other.data)
+
     def sum(self, dim=0):
         assert self.data.ndim>dim, 'axis %d is out of bounds for array of dimension %d' % (dim, self.data.ndim)
         if self.autograd:
             return Tensor(self.data.sum(dim), autograd=True, creator=(self,), create_op='sum_'+str(dim))
         return Tensor(self.data.sum(dim))
     
-    def mean(self, dim):
+    def mean(self, dim=0):
         assert self.data.ndim>dim, 'axis %d is out of bounds for array of dimension %d' % (dim, self.data.ndim)
         if self.autograd:
             return Tensor(self.data.mean(dim), autograd=True, creator=(self,), create_op='mean_'+str(dim))
@@ -92,6 +97,13 @@ class Tensor(object):
             return Tensor(self.data.dot(other.data), autograd=True, creator=(self, other), create_op='mm')
         return Tensor(self.data.dot(other.data))
     
+    def view(self, new_shape):
+        if self.autograd:
+            new = Tensor(self.data.reshape(new_shape), autograd=True, creator=(self,), create_op='view')
+            new.org_shape = self.data.shape
+            return new
+        return Tensor(self.data.reshape(new_shape))
+
     def relu(self):
         if self.autograd:
             return Tensor(np.where(self.data>0, self.data, 0), autograd=True, creator=(self,), create_op='relu')
@@ -111,8 +123,8 @@ class Tensor(object):
         dh = (h-kernel_size)//stride+1
         dw = (w-kernel_size)//stride+1
 
-        output_max = np.zeros(bs, inns, dh, dw)
-        output_max_inds = np.zeros(bs, inns, dh, dw*2)
+        output_max = np.zeros((bs, inns, dh, dw))
+        output_max_inds = np.zeros((bs, inns, dh, dw*2), dtype=np.int)
         for b in range(bs):
             for ins in range(inns):
                 for i in range(0, h-kernel_size+1, stride):
@@ -160,14 +172,12 @@ class Tensor(object):
             h = kernel_size-(padding-ind_h)
             pos_hs = padding-ind_h
         
-
-
     def conv2d(self, input_channels, output_channels, kernel, bias, stride=1, padding=0):
         assert kernel.data.ndim == 4, "the shape of kernel must be 4 in conv2d"
         assert kernel.data.shape[0] == output_channels, "first dim size must be equal to output_channels"
         assert kernel.data.shape[1] == input_channels, "second dim size must be equal to input_channels"
         assert self.data.ndim == 4, "the shape of input data must be 4 in conv2d"
-        assert self.data.shape[2] >= kernel.data.shape[0] and self.data.shape[3] >= kernel.data.shape[1], "the shape of input data must be greater than kernel shape"
+        assert self.data.shape[2] >= kernel.data.shape[2] and self.data.shape[3] >= kernel.data.shape[3], "the shape of input data must be greater than kernel shape"
         assert stride >= 1, "stride must be greater or equal than 1"
         assert padding >= 0, "padding must be greater or equal than 0"
 
@@ -190,7 +200,7 @@ class Tensor(object):
                         s = input*kernel.data[out]
                         output[b, out, i//stride, j//stride] = s.sum()
         if bias is not None:
-            bias_r = bias.reshape(output_channels, 1, 1).repeat(output_height, axis=1).repeat(output_width, axis=2)
+            bias_r = bias.data.reshape(output_channels, 1, 1).repeat(output_height, axis=1).repeat(output_width, axis=2)
             output += bias_r
         
         if self.autograd:
@@ -306,7 +316,7 @@ class Tensor(object):
                 self.creator[0].backward(new, self)
             elif self.create_op == 'relu':
                 factor = np.where(self.data>0, 1, 0)
-                self.creator[0].backward(self.grad*factor, self)
+                self.creator[0].backward(Tensor(self.grad.data*factor), self)
             elif self.create_op == 'sigmoid':
                 new = Tensor(self.data*(1-self.data))*self.grad
                 self.creator[0].backward(new, self)
@@ -334,6 +344,13 @@ class Tensor(object):
             elif self.create_op == 'flatten':
                 new_grad = self.grad.data.reshape(self.org_shape)
                 self.creator[0].backward(Tensor(new_grad), self)
+            elif self.cross_entropy == 'view':
+                new_grad = self.grad.data.reshape(self.org_shape)
+                self.creator[0].backward(Tensor(new_grad), self)
+            elif self.create_op == 'eq':
+                mask = (self.cretor[0].data == self.creator[1].data).float()
+                self.creator[0].backward(Tensor(self.grad.data*mask), self)
+                self.creator[1].backward(Tensor(self.grad.data*mask), self)
             elif self.create_op == 'max_pool2d':
                 new_grad = np.zeros(self.org_shape)
                 bs, inns, _, _ = self.output_max_inds.shape
@@ -344,7 +361,7 @@ class Tensor(object):
                             for j in range(gw):
                                 pos_h = self.output_max_inds[b, ins, i, j*2]
                                 pos_w = self.output_max_inds[b, ins, i, j*2+1]
-                                new_grad[b, ins, pos_h, pos_w] = self.grad[b, ins, i, j]
+                                new_grad[b, ins, pos_h, pos_w] = self.grad.data[b, ins, i, j]
                 self.creator[0].backward(Tensor(new_grad), self)
 
             elif self.create_op == 'conv2d':
@@ -353,8 +370,8 @@ class Tensor(object):
                 
                 # grad for bias
                 if self.has_bias:
-                    grad_bias = self.grad.sum(axis=(0,2,3))
-                    self.creator[2].backward(grad_bias, self)
+                    grad_bias = self.grad.data.sum(axis=(0,2,3))
+                    self.creator[2].backward(Tensor(grad_bias), self)
 
                 # grad for kernel
                 input_data = self.creator[0].data
@@ -390,6 +407,15 @@ class Tensor(object):
         if self.grad is None:
             return
         self.data -= self.grad.data*alpha
+    
+    def item(self):
+        return self.data.item()
+    
+    def float(self):
+        return Tensor(self.data.astype(np.float), autograd=self.autograd)
+
+    def argmax(self, dim=0):
+        return Tensor(self.data.argmax(dim))
     
     def __str__(self):
         return str(self.data.__str__())

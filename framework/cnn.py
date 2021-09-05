@@ -4,7 +4,7 @@ import numpy as np
 
 
 class Conv2d(Layer):
-    def __init__(self, input_channels, output_channels, kernel_size, stride=1, bias=False, padding=0):
+    def __init__(self, input_channels, output_channels, kernel_size, stride=1, bias=True, padding=0):
         super(Conv2d, self).__init__()
         self.name = self.get_name('Conv2d_')
 
