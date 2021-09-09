@@ -410,6 +410,9 @@ class Tensor(object):
             return
         self.data -= self.grad.data*alpha
     
+    def el_num(self):
+        return self.data.size
+    
     def item(self):
         return self.data.item()
     

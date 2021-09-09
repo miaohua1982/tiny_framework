@@ -25,6 +25,7 @@ print(bias.shape)
 print(bias)
 
 #-------------------------------------------------------------------------
+# conv2d test
 conv2d = Conv2d(input_channels=1, output_channels=2, kernel_size=2, padding=1)
 conv2d.set_weight(kernel)
 conv2d.set_bias(bias)
@@ -65,6 +66,7 @@ print('bias grad:')
 print(conv2d.bias.grad)
 
 #--------------------------------------------------------------------
+#max pool 2d test
 max_pool2d = MaxPool2d(kernel_size=2)
 max_pool2d_t = t.nn.MaxPool2d(kernel_size=2)
 input = Tensor(np.array([[1,2,3,4],[4,5,6,7],[7,8,9,10],[11,12,13,14]]).reshape(1,1,4,4), autograd=True)
