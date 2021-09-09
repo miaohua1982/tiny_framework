@@ -1,5 +1,6 @@
 from .layer import Layer, Parameter
 from .tensor import Tensor
+from .init import kaiming_uniform, kaiming_uniform_bias
 import numpy as np
 
 
@@ -14,12 +15,14 @@ class Conv2d(Layer):
         self.padding = padding
         self.kernel_size = kernel_size
 
-        self.kernel = Tensor(np.random.rand(output_channels, input_channels, kernel_size, kernel_size), autograd=True)
+        kernel_weights = kaiming_uniform((output_channels, input_channels, kernel_size, kernel_size), a=np.sqrt(5))
+        self.kernel = Tensor(kernel_weights, autograd=True)
         self.parameters.append(Parameter(self.get_name('Conv2d_Weights_'), self.kernel))
 
         # add bias if needed
         if bias:
-            self.bias = Tensor(np.random.rand(output_channels), autograd=True)
+            bias_weights = kaiming_uniform_bias((output_channels, input_channels, kernel_size, kernel_size), (output_channels,))
+            self.bias = Tensor(bias_weights, autograd=True)
             self.parameters.append(Parameter(self.get_name('Conv2d_Bias_'), self.bias))
         else:
             self.bias = None

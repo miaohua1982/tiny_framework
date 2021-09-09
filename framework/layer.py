@@ -1,4 +1,5 @@
 from .tensor import Tensor
+from .init import kaiming_uniform_, kaiming_uniform_bias_
 import numpy as np
 
 
@@ -36,11 +37,20 @@ class Parameter(object):
     def get_value(self):
         return self.value
 
+    def shape(self):
+        return self.value.shape
+    
     def step(self, alpha):
         self.value.step(alpha)
         
     def zero_grad(self):
         self.value.zero_grad()
+    
+    def eval(self):
+        self.value.eval()
+
+    def train(self):
+        self.value.train()
 
     def __repr__(self):
         return self.name+':'+self.value.__repr__()
@@ -56,6 +66,14 @@ class Layer(object):
         suf_id = item_id_gen.get_next_id(prefix)
         return prefix+str(suf_id)
 
+    def eval(self):
+        for one_param in self.parameters:
+            one_param.eval()
+
+    def train(self):
+        for one_param in self.parameters:
+            one_param.train()
+    
     def __repr__(self):
         layer_repr = ''
         for one in self.get_parameters():
@@ -74,7 +92,16 @@ class LinearLayer(Layer):
             self.parameters.append(Parameter(self.get_name('Linear_Bias_'), self.bias))
         else:
             self.bias = None
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        kaiming_uniform_(self.weights, a=np.sqrt(5))
         
+        if self.bias is not None:
+            kaiming_uniform_bias_(self.weights.shape, self.bias)
+
+
     def forward(self, x):
         y = x.mm(self.weights)
         if self.bias is not None:
@@ -130,6 +157,14 @@ class  Sequential(Layer):
         for one in self.layers:
             layers_params += one.get_parameters()
         return layers_params
+    
+    def eval(self):
+        for one_layer in self.layers:
+            one_layer.eval()
+    
+    def train(self):
+        for one_layer in self.layers:
+            one_layer.train()
     
     def add(self, layer):
         self.layers.append(layer)

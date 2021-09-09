@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 sys.path.insert(0,os.path.dirname(os.path.abspath(__file__))+os.path.sep+os.path.pardir+os.path.sep)
 
 import torchvision as tv
@@ -31,13 +32,16 @@ def calc_accu(pred, gt):
     final = pred.argmax(dim=1)
     return (final == gt).float().mean()
 
-def test(model, test_dataloader, criterion):
+def test(model, test_dataloader, criterion, is_my=False):
     model.eval()
     
     loss = 0
     accuracy = 0
     round_num = 0
     for (x,y) in test_dataloader:
+        if is_my:
+            x = Tensor(x.detach().cpu().numpy(), autograd=True)
+            y = Tensor(y.detach().cpu().numpy(), autograd=True)
         pred = model(x)
         
         cur_loss = criterion(pred, y)
@@ -47,7 +51,7 @@ def test(model, test_dataloader, criterion):
         accuracy += cur_accuracy.item()
         
         round_num += 1
-        
+
     model.train()
     
     return loss/round_num, accuracy/round_num
@@ -124,8 +128,10 @@ def train(epochs, train_dataloader, test_dataloader, model, criterion, optimzer,
     for epoch in range(epochs):
         loss = 0
         accuracy = 0
-        round_num = 0
-        for idx, (x,y) in enumerate(train_dataloader):
+        counter = 0
+        start = time.time()
+        
+        for x,y in train_dataloader:
             if is_my:
                 x = Tensor(x.detach().cpu().numpy(), autograd=True)
                 y = Tensor(y.detach().cpu().numpy(), autograd=True)
@@ -142,13 +148,14 @@ def train(epochs, train_dataloader, test_dataloader, model, criterion, optimzer,
             
             loss += cur_loss.item()
             accuracy += cur_accuracy.item()
-            
-            round_num += 1
-        
+            counter += 1
+       
         # do test
-        test_loss, test_acc = test(model, test_dataloader, criterion)
-        print('in epoch %d, train loss: %.4f, train acc: %.4f, test loss: %.4f, test acc: %.4f' % \
-            (epoch, loss/round_num, accuracy/round_num, test_loss, test_acc))
+        test_loss, test_acc = test(model, test_dataloader, criterion, is_my)
+        # end time counter
+        end = time.time()
+        print('in epoch %d, dura %.4f sec, train loss: %.4f, train acc: %.4f, test loss: %.4f, test acc: %.4f' % \
+            (epoch, end-start, loss/counter, accuracy/counter, test_loss, test_acc))
     
 def pytorch_train(batch_size, epochs, alpha, classes_num, mnist_ds_path):
     # model
@@ -157,6 +164,7 @@ def pytorch_train(batch_size, epochs, alpha, classes_num, mnist_ds_path):
     criterion = nn.CrossEntropyLoss()
     # no momentum means poor performance(may drop 3 percent), momentum=0.9 is good enough
     sgd = t.optim.SGD(lenet.parameters(), lr=alpha, momentum=0.9)
+    # data
     train_dataloader, test_dataloader = data_loader(mnist_ds_path, batch_size)
     # train
     train(epochs, train_dataloader, test_dataloader, lenet, criterion, sgd)
@@ -175,10 +183,17 @@ def my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path):
 
 if __name__ == '__main__':
     batch_size = 32
-    epochs = 35
+    epochs = 2
     alpha = 0.001
     classes_num = 10
     mnist_ds_path = 'datasets'
 
-    #pytorch_train(batch_size, epochs, alpha, classes_num, mnist_ds_path)
-    my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path)
+    # in 2 epochs, it can reach
+    # in epoch 0, dura 4177.1789 sec, train loss: 1.2943, train acc: 0.6256, test loss: 0.3269, test acc: 0.8919
+    # in epoch 1, dura 21.6990 sec, train loss: 0.2366, train acc: 0.9270, test loss: 0.1717, test acc: 0.9454
+    pytorch_train(batch_size, epochs, alpha, classes_num, mnist_ds_path)
+    # in 2 epochs, it can reach
+    # in epoch 0, dura 11579.6827 sec, train loss: 0.2233, train acc: 0.9294, test loss: 0.0703, test acc: 0.9769
+    # in epoch 1, dura 11416.8372 sec, train loss: 0.0678, train acc: 0.9789, test loss: 0.0492, test acc: 0.9845
+    # well, the speed is a big problem
+    my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path) 

@@ -8,6 +8,7 @@ class Tensor(object):
         self.create_op = create_op
         self.autograd = autograd
         self.grad = None
+        self.is_eval = False
         self.children = {}
         self.restore_children = {}
         if id is None:
@@ -269,6 +270,7 @@ class Tensor(object):
         return True
     
     def backward(self, grad=None, child_grad_node=None):
+        assert self.is_eval == False, "model is in eval mode, can not do backward"
         if not self.autograd:
             return
         
@@ -344,7 +346,7 @@ class Tensor(object):
             elif self.create_op == 'flatten':
                 new_grad = self.grad.data.reshape(self.org_shape)
                 self.creator[0].backward(Tensor(new_grad), self)
-            elif self.cross_entropy == 'view':
+            elif self.create_op == 'view':
                 new_grad = self.grad.data.reshape(self.org_shape)
                 self.creator[0].backward(Tensor(new_grad), self)
             elif self.create_op == 'eq':
@@ -387,7 +389,7 @@ class Tensor(object):
                                 grad_kernel[out] += input*self.grad.data[b, out, i//self.stride, j//self.stride]
                 if padding>0:
                     del self.padding_input_data
-                self.creator[1].backward(grad_kernel, self)
+                self.creator[1].backward(Tensor(grad_kernel), self)
 
                 # grad for input data
                 kernel = self.creator[1].data
@@ -397,7 +399,7 @@ class Tensor(object):
                         for i in range(0, dh+padding*2-kh+1, self.stride):
                             for j in range(0, dw+padding*2-kw+1, self.stride):
                                 grad_input[b, :, i:i+kh, j:j+kw] += kernel[out]*self.grad.data[b, out, i//self.stride, j//self.stride]
-                self.creator[0].backward(grad_input[:,:,padding:dh+padding,padding:dw+padding], self)
+                self.creator[0].backward(Tensor(grad_input[:,:,padding:dh+padding,padding:dw+padding]), self)
       
             
     def zero_grad(self):
@@ -414,8 +416,28 @@ class Tensor(object):
     def float(self):
         return Tensor(self.data.astype(np.float), autograd=self.autograd)
 
+    def eval(self):
+        self.is_eval = True
+    
+    def train(self):
+        self.is_eval = False
+    
+    def copyfrom(self, other):
+        assert self.grad is None, "Can not copy tensor in place during backward"
+        assert self.data.shape == other.shape, "The source & target tensor shape should be same"
+        assert isinstance(other, np.ndarray), "The type of target should be np.ndarray"
+
+        np.copyto(self.data, other)
+
     def argmax(self, dim=0):
         return Tensor(self.data.argmax(dim))
+    
+    def dim(self):
+        return self.data.ndim
+    
+    def size(self, ind):
+        assert ind < self.data.ndim, 'index out of data ndim'
+        return self.data.shape[ind]
     
     def __str__(self):
         return str(self.data.__str__())
