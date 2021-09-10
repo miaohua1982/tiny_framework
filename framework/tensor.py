@@ -1,4 +1,5 @@
 import numpy as np
+import conv_operations as co
 
 class Tensor(object):
     def __init__(self, data, autograd=False, creator=None, create_op=None, id=None):
@@ -173,6 +174,46 @@ class Tensor(object):
             h = kernel_size-(padding-ind_h)
             pos_hs = padding-ind_h
         
+    def conv2d_cpp(self, input_channels, output_channels, kernel, bias, stride=1, padding=0):
+        assert kernel.data.ndim == 4, "the shape of kernel must be 4 in conv2d"
+        assert kernel.data.shape[0] == output_channels, "first dim size must be equal to output_channels"
+        assert kernel.data.shape[1] == input_channels, "second dim size must be equal to input_channels"
+        assert self.data.ndim == 4, "the shape of input data must be 4 in conv2d"
+        assert self.data.shape[2] >= kernel.data.shape[2] and self.data.shape[3] >= kernel.data.shape[3], "the shape of input data must be greater than kernel shape"
+        assert stride >= 1, "stride must be greater or equal than 1"
+        assert padding >= 0, "padding must be greater or equal than 0"
+
+        _, _, kh, kw = kernel.shape
+        db, inns, dh, dw = self.shape
+        output_width = (dw+padding*2-kw)//stride+1
+        output_height = (dh+padding*2-kh)//stride+1
+
+        output = np.zeros((db, output_channels, output_height, output_width))
+        if padding > 0:
+            padding_data = np.zeros((db, inns, dh+padding*2, dw+padding*2))
+            #padding_data[:,:,padding:padding+dh, padding:padding+dw] = self.data
+        
+        if bias is not None:
+            co.conv2d_forward_withbias(self.data, kernel.data, bias.data, padding_data, output, stride, padding)
+        else:
+            co.conv2d_forward_nobias(self.data, kernel.data, padding_data, output, stride, padding)
+        
+        if self.autograd:
+            if bias is not None:
+                new = Tensor(output, autograd=True, creator=(self, kernel, bias), create_op='conv2d')
+                new.has_bias = True
+            else:
+                new = Tensor(output, autograd=True, creator=(self, kernel), create_op='conv2d')
+                new.has_bias = False
+            new.stride = stride
+            new.padding = padding
+            
+            if padding > 0 :
+                new.padding_input_data = padding_data
+            return new
+        
+        return Tensor(output)
+
     def conv2d(self, input_channels, output_channels, kernel, bias, stride=1, padding=0):
         assert kernel.data.ndim == 4, "the shape of kernel must be 4 in conv2d"
         assert kernel.data.shape[0] == output_channels, "first dim size must be equal to output_channels"

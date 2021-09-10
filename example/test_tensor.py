@@ -73,7 +73,7 @@ classes_num = 10
 model = LeNet(classes_num)
 print(model)
 
-# load & save
+# load & save & compare
 save_model(model, 'lenet.dmp')
 model2 = load_model('lenet.dmp')
 print(all(model2.conv1.kernel == model.conv1.kernel))
