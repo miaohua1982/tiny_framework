@@ -391,7 +391,7 @@ class Tensor(object):
                 new_grad = self.grad.data.reshape(self.org_shape)
                 self.creator[0].backward(Tensor(new_grad), self)
             elif self.create_op == 'eq':
-                mask = (self.cretor[0].data == self.creator[1].data).float()
+                mask = (self.creator[0].data == self.creator[1].data).float()
                 self.creator[0].backward(Tensor(self.grad.data*mask), self)
                 self.creator[1].backward(Tensor(self.grad.data*mask), self)
             elif self.create_op == 'max_pool2d':

@@ -1,6 +1,7 @@
 #include<pybind11/pybind11.h>
 #include<pybind11/numpy.h>
 #include<cmath>
+#include<iostream>
 
 namespace py = pybind11;
 
@@ -37,14 +38,13 @@ void conv2d_forward(const py::array_t<float>& feat_input, const py::array_t<floa
     py::buffer_info feat_input_buf = feat_input.request();
     py::buffer_info kernel_buf = kernel.request();
     py::buffer_info bias_buf = bias.request();
-    py::buffer_info feat_output_buf = feat_output.request();
 
     if (feat_input_buf.shape[1] != kernel_buf.shape[1])  // input features' channels should be equal to kernel's input channels
     {
         throw std::runtime_error("feature input channels should be equal to kernel's input channels!");
     }
 
-    if (bias_buf.shape[0] != kernel_buf.shape[0])       // bias' size should be equal to kernel's output channels
+    if (bias_buf.shape[0] != kernel_buf.shape[0])        // bias' size should be equal to kernel's output channels
     {
         throw std::runtime_error("bias' size should be equal to kernel's output channels!");
     }
@@ -53,6 +53,7 @@ void conv2d_forward(const py::array_t<float>& feat_input, const py::array_t<floa
     size_t input_channels = kernel_buf.shape[1];
     size_t kh = kernel_buf.shape[2];
     size_t kw = kernel_buf.shape[3];
+
     size_t db = feat_input_buf.shape[0];
     //inns
     size_t dh = feat_input_buf.shape[2];
@@ -66,15 +67,15 @@ void conv2d_forward(const py::array_t<float>& feat_input, const py::array_t<floa
     if(padding > 0) {
         py::buffer_info padding_feat_buf = padding_feat.request();
         float * new_input_ptr = (float*)padding_feat_buf.ptr;
-        size_t feat_h = dh+padding*2;
-        size_t feat_w = dw+padding*2;
+        feat_h = dh+padding*2;
+        feat_w = dw+padding*2;
         size_t feat_img_size = feat_h*feat_w;
         size_t padding_zero = padding*feat_w;
         for(int i = 0; i < db; ++i)
             for(int j = 0; j < input_channels; ++j) {
                 for(int k = 0; k < dh; ++k) {
                     //                           base        padding     done                      base    done
-                    memcpy(new_input_ptr+i*j*feat_img_size+padding_zero+k*feat_w, feat_input_ptr+i*j*dh*dw+k*dw, dw*sizeof(float));
+                    memcpy(new_input_ptr+i*j*feat_img_size+padding_zero+k*feat_w+padding, feat_input_ptr+i*j*dh*dw+k*dw, dw*sizeof(float));
                 }
             }
 
@@ -109,32 +110,33 @@ void conv2d_forward_nobias(const py::array_t<float>& feat_input, const py::array
     conv2d_forward(feat_input, kernel, bias, padding_feat, feat_output, stride, padding);
 }
 
-void calc_grad_kernel(const float * input_data, py::array_t<float>& grad_kernel, float grad_number, \
-                      int out_channel_indx, int input_channles, int kh, int kw, int dh, int dw)
+void calc_grad_kernel(const py::array_t<float>& feat_input, py::array_t<float>& grad_kernel, float grad_number, \
+                      int out_channel_indx, int bs_ind, int input_channels, int kh, int kw, int dh_start, int dw_start)
 {
      auto grad = grad_kernel.mutable_unchecked<4>();
-     for(int i = 0; i < input_channles; ++i) {
+     auto feat_input_arr = feat_input.unchecked<4>();
+     for(int i = 0; i < input_channels; ++i) {
          for(int h = 0; h < kh; ++h){
              for(int w = 0; w < kw; ++w)
-                 grad(out_channel_indx, i, h, w) = grad_number*input_data[i*dh*dw+h*dw+w];
+                 grad(out_channel_indx, i, h, w) += grad_number*feat_input_arr(bs_ind, i, dh_start+h, dw_start+w);
          }
      }
 }
 
-void calc_grad_input(const float * kernel_data, py::array_t<float>& grad_input, float grad_number, \
-                      int out_channel_indx, int input_channles, int kh, int kw, int dh_start, int dw_start)
+void calc_grad_input(const py::array_t<float>& kernel, py::array_t<float>& grad_input, float grad_number, \
+                      int output_channels_ind, int bs_ind, int input_channels, int kh, int kw, int dh_start, int dw_start)
 {
      auto grad = grad_input.mutable_unchecked<4>();
-     for(int i = 0; i < input_channles; ++i) {
-         for(int h = dh_start; h < dh_start+kh; ++h){
-             for(int w = dw_start; w < dw_start+kw; ++w)
-                 grad(out_channel_indx, i, h, w) = grad_number*kernel_data[i*kh*kw+h*kw+w-dw_start];
-         }
+     auto kernel_data =  kernel.unchecked<4>();
+     for(int i = 0; i < input_channels; ++i) {
+         for(int h = 0; h < kh; ++h)
+             for(int w = 0; w < kw; ++w)
+                 grad(bs_ind, i, h+dh_start, w+dw_start) += grad_number*kernel_data(output_channels_ind, i, h, w);
      }
 }   
 
-void conv2d_backward(const py::array_t<float>& grad_output, const py::array_t<int>& feat_input, const py::array_t<int>& kernel, const py::array_t<int>& bias, \
-                     py::array_t<float>& input_grad, py::array_t<float>& kernel_grad, py::array_t<float>& bias_grad, int stride, int padding)
+py::array_t<float> conv2d_backward(const py::array_t<float>& grad_output, const py::array_t<int>& feat_input, const py::array_t<int>& kernel, const py::array_t<int>& bias, \
+                     py::array_t<float>& kernel_grad, py::array_t<float>& bias_grad, int stride, int padding)
 {
     py::buffer_info grad_output_buf = grad_output.request();
     py::buffer_info feat_input_buf = feat_input.request();
@@ -155,7 +157,6 @@ void conv2d_backward(const py::array_t<float>& grad_output, const py::array_t<in
         throw std::runtime_error("bias' size should be equal to kernel's output channels!");
     }
 
-  
     // grad for bias
     size_t gh = grad_output_buf.shape[2];
     size_t gw = grad_output_buf.shape[3];
@@ -171,19 +172,45 @@ void conv2d_backward(const py::array_t<float>& grad_output, const py::array_t<in
         }
     }
 
+    // allocate holder for input grad
+    auto input_grad = py::array_t<float>(bs*input_channels*dh*dw);
+    py::buffer_info input_grad_buf = input_grad.request();
+    float * input_grad_ptr = (float*)input_grad_buf.ptr;
+    memset(input_grad_ptr, 0, bs*input_channels*dh*dw*sizeof(float));
+    input_grad.resize({bs,input_channels,dh,dw});
+
+
     // grad for kernel & input data
-    float * input_feat = (float*)feat_input_buf.ptr;
-    float * kernel_feat = (float*)kernel_buf.ptr;
     for(size_t b = 0; b < bs; ++b) {
         for(size_t out = 0; out < output_channels; ++out)
-            for(size_t i = 0; i < dh+padding*2-kh+1; i += stride)
-                for(size_t j = 0; j < dw+padding*2-kw+1; j += stride) {
-                    float * input_data = input_feat+b*input_channels*dh*dw+i*dw+j;
-                    float * kernel_data = kernel_feat+out*input_channels*kh*kw;
-                    calc_grad_kernel(input_data, kernel_grad, grad_output_arr(b, out, i/stride, j/stride), out, input_channels, kh, kw, dh, dw);
-                    calc_grad_input(kernel_data, input_grad, grad_output_arr(b, out, i/stride, j/stride), out, input_channels, kh, kw, i, j);
+            for(size_t i = 0; i < dh-kh+1; i += stride)
+                for(size_t j = 0; j < dw-kw+1; j += stride) {
+                    float grad_number = grad_output_arr(b, out, i/stride, j/stride);
+                    calc_grad_kernel(feat_input, kernel_grad, grad_number, out, b, input_channels, kh, kw, i, j);
+                    calc_grad_input(kernel, input_grad, grad_number, out, b, input_channels, kh, kw, i, j);
                 }
     }
+    
+    if(padding > 0) {
+        size_t grad_h = dh-2*padding;
+        size_t grad_w = dw-2*padding;
+        auto new_grad = py::array_t<float>(bs*input_channels*grad_h*grad_w);
+        new_grad.resize({bs,input_channels,grad_h,grad_w});
+        py::buffer_info new_grad_buf = new_grad.request();
+        float * new_grad_ptr = (float*)new_grad_buf.ptr;
+        size_t grad_img_size = grad_h*grad_w;
+        size_t input_grad_img_size = dh*dw;
+        size_t padding_size = padding*dw;
+        for(int i = 0; i < bs; ++i)
+            for(int j = 0; j < input_channels; ++j) {
+                for(int k = 0; k < grad_h; ++k) {
+                    memcpy(new_grad_ptr+i*j*grad_img_size+k*grad_w, input_grad_ptr+i*j*input_grad_img_size+padding_size+k*dw+padding, grad_w*sizeof(float));
+                }
+            }
+        return new_grad;
+    }
+
+    return input_grad;
 }
 
 PYBIND11_MODULE(conv_operations, m) {
