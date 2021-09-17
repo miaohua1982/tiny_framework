@@ -199,4 +199,5 @@ if __name__ == '__main__':
     # after rewrite the core function(conv2d, max pool 2d) in cpp, the speed is as followings:
     # in epoch 0, dura 124.6791 sec, train loss: 0.2207, train acc: 0.9299, test loss: 0.0691, test acc: 0.9776
     # in epoch 1, dura 124.7624 sec, train loss: 0.0656, train acc: 0.9799, test loss: 0.0456, test acc: 0.9854
-    my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path) 
+    my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path)
+    # I have find that if I implement conv\max pool in cpp by double not float, the accuracy will a little higher
