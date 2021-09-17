@@ -17,6 +17,27 @@ inline int max(int a, int b){
     return a<b? b:a;
 }
 
+void print_4darray(const py::array_t<float> arr)
+{
+    py::buffer_info arr_info = arr.request();
+    size_t bs = arr_info.shape[0];
+    size_t inns = arr_info.shape[1];
+    size_t h = arr_info.shape[2];
+    size_t w = arr_info.shape[3];
+
+    auto arr_data = arr.unchecked<4>();
+    for(int b = 0; b < bs; ++b) {
+        for(int i = 0; i < inns; ++i) {
+            for(int hh = 0; hh < h; ++hh) {
+                for(int ww = 0; ww < w; ++ww)
+                    std::cout<<arr_data(b, i, hh, ww)<<" ";
+                std::cout<<std::endl;
+            }
+        }
+        std::cout<<std::endl;
+    }
+}
+
 float multiply(float * kernel, float * data, size_t dh, size_t dw, size_t kh, size_t kw, size_t input_channels) 
 {
     float sum = 0;
@@ -33,7 +54,7 @@ float multiply(float * kernel, float * data, size_t dh, size_t dw, size_t kh, si
     return sum;
 }
 
-void conv2d_forward(const py::array_t<float>& feat_input, const py::array_t<float>& kernel, const py::array_t<float>& bias, py::array_t<float>& padding_feat, py::array_t<float>& feat_output, int stride, int padding) 
+py::array_t<float> conv2d_forward(const py::array_t<float>& feat_input, const py::array_t<float>& kernel, const py::array_t<float>& bias, py::array_t<float>& feat_output, int stride, int padding) 
 {
     py::buffer_info feat_input_buf = feat_input.request();
     py::buffer_info kernel_buf = kernel.request();
@@ -64,18 +85,22 @@ void conv2d_forward(const py::array_t<float>& feat_input, const py::array_t<floa
     // handle padding
     float* kernel_ptr = (float*)kernel_buf.ptr;
     float* feat_input_ptr = (float*)feat_input_buf.ptr;
+    
     if(padding > 0) {
-        py::buffer_info padding_feat_buf = padding_feat.request();
-        float * new_input_ptr = (float*)padding_feat_buf.ptr;
         feat_h = dh+padding*2;
         feat_w = dw+padding*2;
-        size_t feat_img_size = feat_h*feat_w;
+        float * new_input_ptr = new float[db*input_channels*feat_h*feat_w]();
+
+        size_t padding_1bs = input_channels*feat_h*feat_w;
+        size_t pading_img_size = feat_h*feat_w;
+        size_t feat_1bs = input_channels*dh*dw;
+        size_t img_size = dh*dw;
         size_t padding_zero = padding*feat_w;
         for(int i = 0; i < db; ++i)
             for(int j = 0; j < input_channels; ++j) {
                 for(int k = 0; k < dh; ++k) {
-                    //                           base        padding     done                      base    done
-                    memcpy(new_input_ptr+i*j*feat_img_size+padding_zero+k*feat_w+padding, feat_input_ptr+i*j*dh*dw+k*dw, dw*sizeof(float));
+                    memcpy(new_input_ptr+i*padding_1bs+j*pading_img_size+padding_zero+k*feat_w+padding, \
+                           feat_input_ptr+i*feat_1bs+j*img_size+k*dw, dw*sizeof(float));
                 }
             }
 
@@ -96,18 +121,34 @@ void conv2d_forward(const py::array_t<float>& feat_input, const py::array_t<floa
             }
         }
     }
+
+    if(padding > 0) {
+        auto padding_feat = py::array_t<float>(db*input_channels*feat_h*feat_w);
+        py::buffer_info padding_feat_buf = padding_feat.request();
+        float * padding = (float*)padding_feat_buf.ptr;
+        memcpy(padding, feat_input_ptr, db*input_channels*feat_h*feat_w*sizeof(float));
+        delete [] feat_input_ptr;
+        padding_feat.resize({db,input_channels,feat_h,feat_w});
+        return padding_feat;
+    } 
+
+    return py::array_t<float>(1);   // dummy
+    
 }
 
-void conv2d_forward_withbias(const py::array_t<float>& feat_input, const py::array_t<float>& kernel, const py::array_t<float>& bias, py::array_t<float>& padding_feat, py::array_t<float>& feat_output, int stride, int padding) 
+py::array_t<float> conv2d_forward_withbias(const py::array_t<float>& feat_input, const py::array_t<float>& kernel, const py::array_t<float>& bias, py::array_t<float>& feat_output, int stride, int padding) 
 {
-    conv2d_forward(feat_input, kernel, bias, padding_feat, feat_output, stride, padding);
+    return conv2d_forward(feat_input, kernel, bias, feat_output, stride, padding);
 }
 
-void conv2d_forward_nobias(const py::array_t<float>& feat_input, const py::array_t<float>& kernel, py::array_t<float>& padding_feat, py::array_t<float>& feat_output, int stride, int padding) 
+py::array_t<float> conv2d_forward_nobias(const py::array_t<float>& feat_input, const py::array_t<float>& kernel, py::array_t<float>& feat_output, int stride, int padding) 
 {
     py::buffer_info kernel_buf = kernel.request();
 	auto bias = py::array_t<float>(kernel_buf.shape[0]);   // output channels size
-    conv2d_forward(feat_input, kernel, bias, padding_feat, feat_output, stride, padding);
+    py::buffer_info bias_buf = bias.request();
+    float * bias_ptr = (float*)bias_buf.ptr;
+    memset(bias_ptr, 0, kernel_buf.shape[0]*sizeof(float));
+    return conv2d_forward(feat_input, kernel, bias, feat_output, stride, padding);
 }
 
 void calc_grad_kernel(const py::array_t<float>& feat_input, py::array_t<float>& grad_kernel, float grad_number, \
@@ -135,7 +176,7 @@ void calc_grad_input(const py::array_t<float>& kernel, py::array_t<float>& grad_
      }
 }   
 
-py::array_t<float> conv2d_backward(const py::array_t<float>& grad_output, const py::array_t<int>& feat_input, const py::array_t<int>& kernel, const py::array_t<int>& bias, \
+py::array_t<float> conv2d_backward(const py::array_t<float>& grad_output, const py::array_t<float>& feat_input, const py::array_t<float>& kernel, const py::array_t<float>& bias, \
                      py::array_t<float>& kernel_grad, py::array_t<float>& bias_grad, int stride, int padding)
 {
     py::buffer_info grad_output_buf = grad_output.request();
@@ -204,7 +245,8 @@ py::array_t<float> conv2d_backward(const py::array_t<float>& grad_output, const 
         for(int i = 0; i < bs; ++i)
             for(int j = 0; j < input_channels; ++j) {
                 for(int k = 0; k < grad_h; ++k) {
-                    memcpy(new_grad_ptr+i*j*grad_img_size+k*grad_w, input_grad_ptr+i*j*input_grad_img_size+padding_size+k*dw+padding, grad_w*sizeof(float));
+                    memcpy(new_grad_ptr+i*input_channels*grad_img_size+j*grad_img_size+k*grad_w, 
+                    input_grad_ptr+i*input_channels*input_grad_img_size+j*input_grad_img_size+padding_size+k*dw+padding, grad_w*sizeof(float));
                 }
             }
         return new_grad;
@@ -213,12 +255,110 @@ py::array_t<float> conv2d_backward(const py::array_t<float>& grad_output, const 
     return input_grad;
 }
 
+
+py::array_t<float> conv2d_backward_withbias(const py::array_t<float>& grad_output, const py::array_t<float>& feat_input, const py::array_t<float>& kernel, const py::array_t<float>& bias, \
+                     py::array_t<float>& kernel_grad, py::array_t<float>& bias_grad, int stride, int padding) 
+{
+    return conv2d_backward(grad_output, feat_input, kernel, bias, kernel_grad, bias_grad, stride, padding);
+}
+
+py::array_t<float> conv2d_backward_nobias(const py::array_t<float>& grad_output, const py::array_t<float>& feat_input, const py::array_t<float>& kernel,  \
+                     py::array_t<float>& kernel_grad, py::array_t<float>& bias_grad, int stride, int padding) 
+{
+    py::buffer_info kernel_buf = kernel.request();
+	auto bias = py::array_t<float>(kernel_buf.shape[0]);   // output channels size
+    return conv2d_backward(grad_output, feat_input, kernel, bias, kernel_grad, bias_grad, stride, padding);
+}
+
+py::array_t<int> maxpool2d_forward(const py::array_t<double>& feat_input, py::array_t<double>& output_max, int kernel_size, int stride, int padding)
+{
+    py::buffer_info feat_input_buf = feat_input.request();
+    
+    size_t bs = feat_input_buf.shape[0];
+    size_t input_channels = feat_input_buf.shape[1];
+    size_t h = feat_input_buf.shape[2];
+    size_t w = feat_input_buf.shape[3];
+
+    size_t dh = (h-kernel_size)/stride+1;
+    size_t dw = (w-kernel_size)/stride+1;
+
+    auto feat = feat_input.unchecked<4>();
+    auto output = output_max.mutable_unchecked<4>();
+
+    // allocate holder for max pool position
+    auto output_max_inds = py::array_t<int>(bs*input_channels*dh*dw*2);
+    output_max_inds.resize({bs,input_channels,dh,dw*2});
+    auto output_max_pos = output_max_inds.mutable_unchecked<4>();
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t inns = 0; inns < input_channels; ++inns) {
+            for(size_t i = 0; i < h-kernel_size+1; i += stride) {
+                for(size_t j = 0; j < w-kernel_size+1; j += stride) {
+                        
+                        size_t pos_h = i/stride;
+                        size_t pos_w = j/stride;
+                        double max_val = -1000000.0;
+                        int max_pos_h = -1;
+                        int max_pos_w = -1;
+                        for(int kh = i; kh < i+kernel_size; ++kh)
+                            for(int kw = j; kw < j+kernel_size; ++kw)
+                                if(max_val < feat(b, inns, kh, kw)) {
+                                    max_val = feat(b, inns, kh, kw);
+                                    max_pos_h = kh;
+                                    max_pos_w = kw;
+                                }
+                        output(b,inns,pos_h,pos_w) = max_val;
+                        output_max_pos(b,inns,pos_h,pos_w*2) = max_pos_h;
+                        output_max_pos(b,inns,pos_h,pos_w*2+1) = max_pos_w;
+                }
+            }
+        }
+
+    return output_max_inds;
+}
+
+py::array_t<double> maxpool2d_backward(const py::array_t<double>& grad_output, const py::array_t<int>& output_max_inds, size_t dh, size_t dw, int kernel_size, int stride, int padding)
+{
+    py::buffer_info grad_output_buf = grad_output.request();
+    
+    size_t bs = grad_output_buf.shape[0];
+    size_t input_channels = grad_output_buf.shape[1];
+    size_t gh = grad_output_buf.shape[2];
+    size_t gw = grad_output_buf.shape[3];
+    
+    auto grad_input = py::array_t<double>(bs*input_channels*dh*dw);
+    py::buffer_info grad_input_buf = grad_input.request();
+    double * grad_input_ptr = (double*)grad_input_buf.ptr;
+    memset(grad_input_ptr, 0, bs*input_channels*dh*dw*sizeof(double));
+
+    grad_input.resize({bs,input_channels,dh,dw});
+    auto new_grad = grad_input.mutable_unchecked<4>();
+
+    auto grad = grad_output.unchecked<4>();
+    auto output_max_pos = output_max_inds.unchecked<4>();
+    for(int b = 0; b < bs; ++b)
+        for(int inns = 0; inns < input_channels; ++inns) {
+            for(int i = 0; i < gh; ++i)
+                for(int j = 0; j < gw; ++j) {
+                    int pos_h = output_max_pos(b, inns, i, j*2);
+                    int pos_w = output_max_pos(b, inns, i, j*2+1);
+                    new_grad(b, inns, pos_h, pos_w) = grad(b, inns, i, j);
+                }
+        }
+
+    return grad_input;
+}
+
 PYBIND11_MODULE(conv_operations, m) {
-    m.doc() = "conv2d forward & backward with pybind11";
+    m.doc() = "conv2d, maxpool2d forward & backward with pybind11";
 
 	m.attr("__version__") = "0.0.1";
     m.def("add", &add, "for test");
+    m.def("print_4darray", &print_4darray, "print 4d array for debug");
     m.def("conv2d_forward_withbias", &conv2d_forward_withbias, "A function do conv2d forward(with bias) operation according to input features & kernel");
     m.def("conv2d_forward_nobias", &conv2d_forward_nobias, "A function do conv2d forward(without bias) operation according to input features & kernel");
-    m.def("conv2d_backward", &conv2d_backward, "A function do conv2d backward operation according to grad output");
+    m.def("conv2d_backward_withbias", &conv2d_backward_withbias, "A function do conv2d backward(with bias) operation according to grad output");
+    m.def("conv2d_backward_nobias", &conv2d_backward_nobias, "A function do conv2d backward(without bias) operation according to grad output");
+    m.def("maxpool2d_forward", &maxpool2d_forward, "A function do maxpool2d forward operation according to input features");
+    m.def("maxpool2d_backward", &maxpool2d_backward, "A function do maxpool2d backward operation according to grad output");
+
 }

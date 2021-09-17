@@ -102,7 +102,7 @@ def kaiming_uniform(tensor_shape, a=0, mode='fan_in', nonlinearity='leaky_relu')
     gain = calculate_gain(nonlinearity, a)
     std = gain / np.sqrt(fan)
     bound = np.sqrt(3.0) * std  # Calculate uniform bounds from standard deviation
-    return np.random.uniform(-bound, bound, tensor_shape)
+    return np.random.uniform(-bound, bound, tensor_shape).astype(np.float32)
 
 def kaiming_uniform_(tensor, a=0, mode='fan_in', nonlinearity='leaky_relu'):
     r"""
@@ -116,7 +116,7 @@ def kaiming_uniform_(tensor, a=0, mode='fan_in', nonlinearity='leaky_relu'):
 def kaiming_uniform_bias(tensor_shape, bias_shape):
     fan_in, _ = _calculate_fan_in_and_fan_out(tensor_shape)
     bound = 1 / np.sqrt(fan_in)
-    return np.random.uniform(-bound, bound, bias_shape)
+    return np.random.uniform(-bound, bound, bias_shape).astype(np.float32)
 
 def kaiming_uniform_bias_(tensor_shape, bias_tensor):
     r"""

@@ -44,7 +44,7 @@ class Conv2d(Layer):
         np.copyto(self.bias.data, bias)
 
     def forward(self, input):
-        output = input.conv2d(self.input_channels, self.output_channels, self.kernel, self.bias, self.stride, self.padding)
+        output = input.conv2d_cpp(self.input_channels, self.output_channels, self.kernel, self.bias, self.stride, self.padding)
         return output
     
     def __call__(self, input):

@@ -189,11 +189,14 @@ if __name__ == '__main__':
     mnist_ds_path = 'datasets'
 
     # in 2 epochs, it can reach
-    # in epoch 0, dura 4177.1789 sec, train loss: 1.2943, train acc: 0.6256, test loss: 0.3269, test acc: 0.8919
-    # in epoch 1, dura 21.6990 sec, train loss: 0.2366, train acc: 0.9270, test loss: 0.1717, test acc: 0.9454
+    # in epoch 0, dura 17.3718 sec, train loss: 1.4284, train acc: 0.5847, test loss: 0.2987, test acc: 0.9130
+    # in epoch 1, dura 16.7949 sec, train loss: 0.2464, train acc: 0.9236, test loss: 0.1629, test acc: 0.9519
     pytorch_train(batch_size, epochs, alpha, classes_num, mnist_ds_path)
     # in 2 epochs, it can reach
     # in epoch 0, dura 11579.6827 sec, train loss: 0.2233, train acc: 0.9294, test loss: 0.0703, test acc: 0.9769
     # in epoch 1, dura 11416.8372 sec, train loss: 0.0678, train acc: 0.9789, test loss: 0.0492, test acc: 0.9845
     # well, the speed is a big problem
-    #my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path) 
+    # after rewrite the core function(conv2d, max pool 2d) in cpp, the speed is as followings:
+    # in epoch 0, dura 124.6791 sec, train loss: 0.2207, train acc: 0.9299, test loss: 0.0691, test acc: 0.9776
+    # in epoch 1, dura 124.7624 sec, train loss: 0.0656, train acc: 0.9799, test loss: 0.0456, test acc: 0.9854
+    my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path) 

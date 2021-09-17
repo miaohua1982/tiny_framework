@@ -117,6 +117,28 @@ class Tensor(object):
             return Tensor(new, autograd=True, creator=(self,), create_op='sigmoid')
         return Tensor(new)
     
+    def max_pool2d_cpp(self, kernel_size, stride, padding):
+        assert self.data.ndim == 4, "the shape of input data must be 4 in max_pool2d"
+        assert self.data.shape[2] >= kernel_size and  self.data.shape[3] >= kernel_size, "the width and height of input data must be greater or equal than kernel size"
+        
+        bs, inns, h, w = self.data.shape
+        dh = (h-kernel_size)//stride+1
+        dw = (w-kernel_size)//stride+1
+        
+        output_max = np.zeros((bs, inns, dh, dw))
+        output_max_inds = co.maxpool2d_forward(self.data.astype(np.float64), output_max, kernel_size, stride, padding)
+        
+        if self.autograd:
+            new = Tensor(output_max, autograd=True, creator=(self,), create_op='max_pool2d_cpp')
+            new.output_max_inds = output_max_inds
+            new.org_shape = self.data.shape
+            new.kernel_size = kernel_size
+            new.stride = stride
+            new.padding = padding
+            return new
+        
+        return Tensor(output_max)
+
     def max_pool2d(self, kernel_size, stride, padding):
         assert self.data.ndim == 4, "the shape of input data must be 4 in max_pool2d"
         assert self.data.shape[2] >= kernel_size and  self.data.shape[3] >= kernel_size, "the width and height of input data must be greater or equal than kernel size"
@@ -188,22 +210,18 @@ class Tensor(object):
         output_width = (dw+padding*2-kw)//stride+1
         output_height = (dh+padding*2-kh)//stride+1
 
-        output = np.zeros((db, output_channels, output_height, output_width))
-        if padding > 0:
-            padding_data = np.zeros((db, inns, dh+padding*2, dw+padding*2))
-            #padding_data[:,:,padding:padding+dh, padding:padding+dw] = self.data
-        
+        output = np.zeros((db, output_channels, output_height, output_width), dtype=np.float32)
         if bias is not None:
-            co.conv2d_forward_withbias(self.data, kernel.data, bias.data, padding_data, output, stride, padding)
+            padding_data = co.conv2d_forward_withbias(self.data.astype(np.float32), kernel.data, bias.data, output, stride, padding)
         else:
-            co.conv2d_forward_nobias(self.data, kernel.data, padding_data, output, stride, padding)
+            padding_data = co.conv2d_forward_nobias(self.data.astype(np.float32), kernel.data, output, stride, padding)
         
         if self.autograd:
             if bias is not None:
-                new = Tensor(output, autograd=True, creator=(self, kernel, bias), create_op='conv2d')
+                new = Tensor(output, autograd=True, creator=(self, kernel, bias), create_op='conv2d_cpp')
                 new.has_bias = True
             else:
-                new = Tensor(output, autograd=True, creator=(self, kernel), create_op='conv2d')
+                new = Tensor(output, autograd=True, creator=(self, kernel), create_op='conv2d_cpp')
                 new.has_bias = False
             new.stride = stride
             new.padding = padding
@@ -406,6 +424,10 @@ class Tensor(object):
                                 pos_w = self.output_max_inds[b, ins, i, j*2+1]
                                 new_grad[b, ins, pos_h, pos_w] = self.grad.data[b, ins, i, j]
                 self.creator[0].backward(Tensor(new_grad), self)
+            elif self.create_op == 'max_pool2d_cpp':
+                new_grad = co.maxpool2d_backward(self.grad.data, self.output_max_inds, \
+                                                 self.org_shape[2], self.org_shape[3], self.kernel_size, self.stride, self.padding)
+                self.creator[0].backward(Tensor(new_grad), self)
 
             elif self.create_op == 'conv2d':
                 bs, input_channels, dh, dw = self.creator[0].shape
@@ -441,7 +463,26 @@ class Tensor(object):
                             for j in range(0, dw+padding*2-kw+1, self.stride):
                                 grad_input[b, :, i:i+kh, j:j+kw] += kernel[out]*self.grad.data[b, out, i//self.stride, j//self.stride]
                 self.creator[0].backward(Tensor(grad_input[:,:,padding:dh+padding,padding:dw+padding]), self)
-      
+            elif self.create_op == 'conv2d_cpp':
+                input_data = self.creator[0].data
+                kernel = self.creator[1].data
+                padding = self.padding
+                stride = self.stride
+                kernel_grad = np.zeros(self.creator[1].shape, dtype=np.float32)
+                if padding>0:
+                    input_data = self.padding_input_data
+
+                # grad for bias
+                if self.has_bias:
+                    bias = self.creator[2].data
+                    bias_grad = np.zeros(kernel.shape[0], dtype=np.float32)  # output_channels*input_channels*kh*kw
+                    input_grad = co.conv2d_backward_withbias(self.grad.data.astype(np.float32), input_data.astype(np.float32), kernel, bias, kernel_grad, bias_grad, stride, padding)
+                    self.creator[2].backward(Tensor(bias_grad), self)
+                else:
+                    input_grad = co.conv2d_backward_withoutbias(self.grad.data.astype(np.float32), input_data.astype(np.float32), kernel, kernel_grad, stride, padding)
+
+                self.creator[0].backward(Tensor(input_grad), self)
+                self.creator[1].backward(Tensor(kernel_grad), self)
             
     def zero_grad(self):
         self.grad = None

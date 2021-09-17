@@ -134,7 +134,7 @@ class MaxPool2d(Layer):
         self.padding = padding
 
     def forward(self, input):
-        return input.max_pool2d(self.kernel_size, self.stride, self.padding)
+        return input.max_pool2d_cpp(self.kernel_size, self.stride, self.padding)
     
     def __call__(self, input):
         return self.forward(input)

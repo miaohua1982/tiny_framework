@@ -6,6 +6,7 @@ import conv_operations as co
 # test the test
 assert co.add(1, 2) == 3
 
+#-----------------------------------------------------------------------------------------------------
 # compare conv2d with no padding
 input = np.array([[1,2,3],[4,5,6],[7,8,9]], dtype=np.float32).reshape(1,1,3,3)
 kernel = np.array([[1,2],[2,1]], dtype=np.float32).reshape(1,1,2,2)
@@ -34,8 +35,7 @@ print(output_t.shape)
 print(output_t)
 
 output_holder = np.zeros((1, 2, 2, 2), dtype=np.float32)
-padding_feat = np.zeros(input.shape, dtype=np.float32)
-co.conv2d_forward_withbias(input, kernel, bias, padding_feat, output_holder, 1, 0)
+padding_feat = co.conv2d_forward_withbias(input, kernel, bias, output_holder, 1, 0)
 print(output_holder)
 print('Two are same:',np.all(output_t.detach().numpy() == output_holder))
 
@@ -47,8 +47,7 @@ print(output_t.shape)
 print(output_t)
 
 output_holder = np.zeros((1, 2, 2, 2), dtype=np.float32)
-padding_feat = np.zeros(input.shape, dtype=np.float32)
-co.conv2d_forward_withbias(input, conv2d_t.weight.data.numpy(), conv2d_t.bias.data.numpy(), padding_feat, output_holder, 1, 0)
+padding_feat = co.conv2d_forward_withbias(input, conv2d_t.weight.data.numpy(), conv2d_t.bias.data.numpy(), output_holder, 1, 0)
 print(output_holder.shape)
 print(output_holder.round(4))   # cpp library output has more precision
 print('Two are same:',np.all(output_t.detach().numpy().round(4) == output_holder.round(4))) # compare under same precision
@@ -63,8 +62,7 @@ print(output_t.shape)
 print(output_t)
 
 output_holder = np.zeros((1, 2, 4, 4), dtype=np.float32)
-padding_feat = np.zeros((1, 1, 5, 5), dtype=np.float32)   # height+2*p, width+2*p
-co.conv2d_forward_withbias(input, kernel, bias, padding_feat, output_holder, 1, 1)
+padding_feat = co.conv2d_forward_withbias(input, kernel, bias, output_holder, 1, 1)
 print(output_holder.shape)
 print(output_holder)
 print('Two are same:',np.all(output_t.detach().numpy() == output_holder))
@@ -77,8 +75,7 @@ print(output_t.shape)
 print(output_t)
 
 output_holder = np.zeros((1, 2, 4, 4), dtype=np.float32)
-padding_feat = np.zeros((1, 1, 5, 5), dtype=np.float32)
-co.conv2d_forward_withbias(input, conv2d_t.weight.data.numpy(), conv2d_t.bias.data.numpy(), padding_feat, output_holder, 1, 1)
+padding_feat = co.conv2d_forward_withbias(input, conv2d_t.weight.data.numpy(), conv2d_t.bias.data.numpy(), output_holder, 1, 1)
 print(output_holder.shape)
 print(output_holder.round(4))   # cpp library output has more precision
 print('Two are same:',np.all(output_t.detach().numpy().round(4) == output_holder.round(4))) # compare under same precision
@@ -105,18 +102,16 @@ print('bias grad:', conv2d_t.bias.grad.shape)
 print(conv2d_t.bias.grad)
 
 output_holder = np.zeros((1, 2, 4, 4), dtype=np.float32)
-padding_feat = np.zeros((1, 1, 5, 5), dtype=np.float32)   # height+2*p, width+2*p
-co.conv2d_forward_withbias(input, kernel, bias, padding_feat, output_holder, 1, 1)
+padding_feat = co.conv2d_forward_withbias(input, kernel, bias, output_holder, 1, 1)
 print(output_holder.shape)
 print(output_holder)
-print(padding_feat)
+print('The padding feat is',padding_feat)
 
 grad_output = np.ones((1,2,4,4), dtype=np.float32)
-#input_grad = np.zeros((1,1,5,5), dtype=np.float32)
 kernel_grad = np.zeros((2,1,2,2), dtype=np.float32)
 bias_grad = np.zeros(2, dtype=np.float32)
 
-input_grad = co.conv2d_backward(grad_output, padding_feat, kernel, bias, kernel_grad, bias_grad, 1, 1)
+input_grad = co.conv2d_backward_withbias(grad_output, padding_feat, kernel, bias, kernel_grad, bias_grad, 1, 1)
 print('kernel_t grad:')
 print(kernel_grad)         # compare to conv2d.kernel.grad
 print('input_t grad:', input_grad.shape)
@@ -124,3 +119,67 @@ print(input_grad)          # compare to input.grad
 print('bias grad:')
 print(bias_grad)
 
+# random conv2d backward test without padding
+print('----------------------------random conv2d backward test without padding--------------------------')
+conv2d_t = t.nn.Conv2d(in_channels=1, out_channels=2, kernel_size=2, padding=0)
+conv2d_t.weight.data = kernel_t
+conv2d_t.bias.data = bias_t
+
+input_t.retain_grad()   # to enable to access grad of non-leaf node's grad
+input_t.grad = None
+output_t = conv2d_t(input_t)
+print('output shape',output_t.shape)
+print(output_t)
+output_t = output_t.flatten()
+f = output_t.sum()
+f.backward()
+print('kernel_t grad:', conv2d_t.weight.grad.shape)
+print(conv2d_t.weight.grad)  # compare to conv2d.kernel.grad
+print('input_t grad:', input_t.shape)
+print(input_t.grad)          # compare to input.grad
+print('bias grad:', conv2d_t.bias.grad.shape)
+print(conv2d_t.bias.grad)
+
+output_holder = np.zeros((1, 2, 2, 2), dtype=np.float32)
+padding_feat = co.conv2d_forward_withbias(input, kernel, bias, output_holder, 1, 0)
+print('output shape',output_holder.shape)
+print(output_holder)
+print('The padding feat is',padding_feat)  # it is dummy, no needed
+
+grad_output = np.ones((1,2,2,2), dtype=np.float32)
+kernel_grad = np.zeros((2,1,2,2), dtype=np.float32)
+bias_grad = np.zeros(2, dtype=np.float32)
+
+input_grad = co.conv2d_backward_withbias(grad_output, input, kernel, bias, kernel_grad, bias_grad, 1, 0)
+print('kernel_t grad:')
+print(kernel_grad)         # compare to conv2d.kernel.grad
+print('input_t grad:', input_grad.shape)
+print(input_grad)          # compare to input.grad
+print('bias grad:')
+print(bias_grad)
+
+
+#-------------------------------------------------------------------------------------------
+#test the print
+print('----------------------------print test---------------------------------')
+
+input = np.array([[1,2,3],[4,5,6],[7,8,9],[1,2,3],[4,5,6],[7,8,9]], dtype=np.float32).reshape(1,2,3,3)
+input = np.concatenate([input, input])
+print(input.shape)
+co.print_4darray(input)
+
+kernel = np.array([[1,2],[2,1],[1,2],[2,1]], dtype=np.float32).reshape(1,2,2,2)
+kernel = np.concatenate([kernel, kernel])
+print(kernel.shape)
+co.print_4darray(kernel)
+
+bias = np.array([2,2], dtype=np.float32)
+
+
+output_holder = np.zeros((2, 2, 4, 4), dtype=np.float32)
+padding_feat = co.conv2d_forward_withbias(input, kernel, bias, output_holder, 1, 1)
+print(output_holder.shape)
+print(output_holder)
+
+print(padding_feat.shape)
+print(padding_feat)
