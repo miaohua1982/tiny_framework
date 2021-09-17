@@ -270,7 +270,7 @@ py::array_t<float> conv2d_backward_nobias(const py::array_t<float>& grad_output,
     return conv2d_backward(grad_output, feat_input, kernel, bias, kernel_grad, bias_grad, stride, padding);
 }
 
-py::array_t<int> maxpool2d_forward(const py::array_t<double>& feat_input, py::array_t<double>& output_max, int kernel_size, int stride, int padding)
+py::array_t<int> maxpool2d_forward(const py::array_t<float>& feat_input, py::array_t<float>& output_max, int kernel_size, int stride, int padding)
 {
     py::buffer_info feat_input_buf = feat_input.request();
     
@@ -296,7 +296,7 @@ py::array_t<int> maxpool2d_forward(const py::array_t<double>& feat_input, py::ar
                         
                         size_t pos_h = i/stride;
                         size_t pos_w = j/stride;
-                        double max_val = -1000000.0;
+                        float max_val = -1000000.0f;
                         int max_pos_h = -1;
                         int max_pos_w = -1;
                         for(int kh = i; kh < i+kernel_size; ++kh)
@@ -316,7 +316,7 @@ py::array_t<int> maxpool2d_forward(const py::array_t<double>& feat_input, py::ar
     return output_max_inds;
 }
 
-py::array_t<double> maxpool2d_backward(const py::array_t<double>& grad_output, const py::array_t<int>& output_max_inds, size_t dh, size_t dw, int kernel_size, int stride, int padding)
+py::array_t<float> maxpool2d_backward(const py::array_t<float>& grad_output, const py::array_t<int>& output_max_inds, size_t dh, size_t dw, int kernel_size, int stride, int padding)
 {
     py::buffer_info grad_output_buf = grad_output.request();
     
@@ -325,10 +325,10 @@ py::array_t<double> maxpool2d_backward(const py::array_t<double>& grad_output, c
     size_t gh = grad_output_buf.shape[2];
     size_t gw = grad_output_buf.shape[3];
     
-    auto grad_input = py::array_t<double>(bs*input_channels*dh*dw);
+    auto grad_input = py::array_t<float>(bs*input_channels*dh*dw);
     py::buffer_info grad_input_buf = grad_input.request();
-    double * grad_input_ptr = (double*)grad_input_buf.ptr;
-    memset(grad_input_ptr, 0, bs*input_channels*dh*dw*sizeof(double));
+    float * grad_input_ptr = (float*)grad_input_buf.ptr;
+    memset(grad_input_ptr, 0, bs*input_channels*dh*dw*sizeof(float));
 
     grad_input.resize({bs,input_channels,dh,dw});
     auto new_grad = grad_input.mutable_unchecked<4>();

@@ -125,8 +125,8 @@ class Tensor(object):
         dh = (h-kernel_size)//stride+1
         dw = (w-kernel_size)//stride+1
         
-        output_max = np.zeros((bs, inns, dh, dw))
-        output_max_inds = co.maxpool2d_forward(self.data.astype(np.float64), output_max, kernel_size, stride, padding)
+        output_max = np.zeros((bs, inns, dh, dw), dtype=np.float32)
+        output_max_inds = co.maxpool2d_forward(self.data.astype(np.float32), output_max, kernel_size, stride, padding)
         
         if self.autograd:
             new = Tensor(output_max, autograd=True, creator=(self,), create_op='max_pool2d_cpp')
@@ -425,7 +425,7 @@ class Tensor(object):
                                 new_grad[b, ins, pos_h, pos_w] = self.grad.data[b, ins, i, j]
                 self.creator[0].backward(Tensor(new_grad), self)
             elif self.create_op == 'max_pool2d_cpp':
-                new_grad = co.maxpool2d_backward(self.grad.data, self.output_max_inds, \
+                new_grad = co.maxpool2d_backward(self.grad.data.astype(np.float32), self.output_max_inds, \
                                                  self.org_shape[2], self.org_shape[3], self.kernel_size, self.stride, self.padding)
                 self.creator[0].backward(Tensor(new_grad), self)
 
