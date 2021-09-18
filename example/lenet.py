@@ -183,7 +183,7 @@ def my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path):
 
 if __name__ == '__main__':
     batch_size = 32
-    epochs = 2
+    epochs = 10
     alpha = 0.001
     classes_num = 10
     mnist_ds_path = 'datasets'
@@ -201,3 +201,19 @@ if __name__ == '__main__':
     # in epoch 1, dura 124.7624 sec, train loss: 0.0656, train acc: 0.9799, test loss: 0.0456, test acc: 0.9854
     my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path)
     # I have find that if I implement conv\max pool in cpp by double not float, the accuracy will a little higher
+    
+    # in float mode, the result is as followings:
+    # torch:
+    # we have 1875 train samples, and 313 test samples
+    # in epoch 0, dura 17.3973 sec, train loss: 1.0882, train acc: 0.6762, test loss: 0.2792, test acc: 0.9189
+    # in epoch 1, dura 16.5384 sec, train loss: 0.2326, train acc: 0.9274, test loss: 0.1601, test acc: 0.9471
+    # in epoch 2, dura 16.6213 sec, train loss: 0.1475, train acc: 0.9544, test loss: 0.1289, test acc: 0.9578
+    # in epoch 3, dura 16.2555 sec, train loss: 0.1106, train acc: 0.9656, test loss: 0.1104, test acc: 0.9627
+    # in epoch 4, dura 16.5282 sec, train loss: 0.0912, train acc: 0.9709, test loss: 0.0790, test acc: 0.9743
+    # my implementation
+    # we have 1875 train samples, and 313 test samples
+    # in epoch 0, dura 121.5823 sec, train loss: 0.2940, train acc: 0.9100, test loss: 0.0770, test acc: 0.9751
+    # in epoch 1, dura 121.3367 sec, train loss: 0.0710, train acc: 0.9777, test loss: 0.0775, test acc: 0.9750
+    # in epoch 2, dura 121.4589 sec, train loss: 0.0503, train acc: 0.9843, test loss: 0.0512, test acc: 0.9824
+    # in epoch 3, dura 121.5643 sec, train loss: 0.0382, train acc: 0.9879, test loss: 0.0478, test acc: 0.9845
+    # in epoch 4, dura 121.3851 sec, train loss: 0.0312, train acc: 0.9902, test loss: 0.0364, test acc: 0.9872
