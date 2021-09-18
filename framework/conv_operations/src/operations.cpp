@@ -110,10 +110,12 @@ py::array_t<float> conv2d_forward(const py::array_t<float>& feat_input, const py
     auto output = feat_output.mutable_unchecked<4>();
     size_t one_bs_data = input_channels*feat_h*feat_w;
     size_t one_bs_kernel = input_channels*kh*kw;
+    int h_end = dh+padding*2-kh+1;
+    int w_end = dw+padding*2-kw+1;
     for(int b = 0; b < db; ++b) {
         for(int out = 0; out < output_channels; ++out) {
-            for(int i = 0; i < dh+padding*2-kh+1; i += stride) {
-                for(int j = 0; j < dw+padding*2-kw+1; j += stride) {
+            for(int i = 0; i < h_end; i += stride) {
+                for(int j = 0; j < w_end; j += stride) {
                     float * input_data = &(feat_input_ptr[b*one_bs_data+i*feat_w+j]);
                     float * kernel_data = &(kernel_ptr[out*one_bs_kernel]);
                     output(b, out, i/stride, j/stride) = multiply(kernel_data, input_data, feat_h, feat_w, kh, kw, input_channels)+bias.at(out);
@@ -240,13 +242,15 @@ py::array_t<float> conv2d_backward(const py::array_t<float>& grad_output, const 
         py::buffer_info new_grad_buf = new_grad.request();
         float * new_grad_ptr = (float*)new_grad_buf.ptr;
         size_t grad_img_size = grad_h*grad_w;
+        size_t grad_1bs = input_channels*grad_img_size;
         size_t input_grad_img_size = dh*dw;
+        size_t input_1bs = input_channels*input_grad_img_size;
         size_t padding_size = padding*dw;
         for(int i = 0; i < bs; ++i)
             for(int j = 0; j < input_channels; ++j) {
                 for(int k = 0; k < grad_h; ++k) {
-                    memcpy(new_grad_ptr+i*input_channels*grad_img_size+j*grad_img_size+k*grad_w, 
-                    input_grad_ptr+i*input_channels*input_grad_img_size+j*input_grad_img_size+padding_size+k*dw+padding, grad_w*sizeof(float));
+                    memcpy(new_grad_ptr+i*grad_1bs+j*grad_img_size+k*grad_w, 
+                    input_grad_ptr+i*input_1bs+j*input_grad_img_size+padding_size+k*dw+padding, grad_w*sizeof(float));
                 }
             }
         return new_grad;
@@ -278,6 +282,8 @@ py::array_t<int> maxpool2d_forward(const py::array_t<float>& feat_input, py::arr
     size_t input_channels = feat_input_buf.shape[1];
     size_t h = feat_input_buf.shape[2];
     size_t w = feat_input_buf.shape[3];
+    size_t h_end = h-kernel_size+1;
+    size_t w_end = w-kernel_size+1;
 
     size_t dh = (h-kernel_size)/stride+1;
     size_t dw = (w-kernel_size)/stride+1;
@@ -291,16 +297,17 @@ py::array_t<int> maxpool2d_forward(const py::array_t<float>& feat_input, py::arr
     auto output_max_pos = output_max_inds.mutable_unchecked<4>();
     for(size_t b = 0; b < bs; ++b)
         for(size_t inns = 0; inns < input_channels; ++inns) {
-            for(size_t i = 0; i < h-kernel_size+1; i += stride) {
-                for(size_t j = 0; j < w-kernel_size+1; j += stride) {
-                        
-                        size_t pos_h = i/stride;
+            for(size_t i = 0; i < h_end; i += stride) {
+                size_t pos_h = i/stride;
+                for(size_t j = 0; j < w_end; j += stride) {
                         size_t pos_w = j/stride;
                         float max_val = -1000000.0f;
                         int max_pos_h = -1;
                         int max_pos_w = -1;
-                        for(int kh = i; kh < i+kernel_size; ++kh)
-                            for(int kw = j; kw < j+kernel_size; ++kw)
+                        int kh_end = i+kernel_size;
+                        int kw_end = j+kernel_size;
+                        for(int kh = i; kh < kh_end; ++kh)
+                            for(int kw = j; kw < kw_end; ++kw)
                                 if(max_val < feat(b, inns, kh, kw)) {
                                     max_val = feat(b, inns, kh, kw);
                                     max_pos_h = kh;
