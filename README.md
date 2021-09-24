@@ -18,11 +18,13 @@ pip uninstall conv_operations
 ```
 
 Here is some speed compare between my code and torch(note all code is running on cpu)  
-1.the conv2d forward operation
+1.the conv2d forward operation  
 ![the conv2d forward operation](pic/conv2d_forward_opt_running_time.png)  
 2.the conv2d forward&backward operation  
 ![the conv2d forward&backward operation](pic/conv2d_forward_and_backward_opt_running_time.png)  
 3.the maxpool2d forward operation  
 ![the maxpool2d forward operation](pic/maxpool2d_forward_running_time.png)  
 4.the maxpool2d forward&backward operation  
-![the maxpool2d forward&backward operation](pic/maxpool2d_forward_and_backward_opt_running_time.png)
+![the maxpool2d forward&backward operation](pic/maxpool2d_forward_and_backward_opt_running_time.png)  
+
+\hat{x}_\text{new} = (1 - \text{momentum}) \times \hat{x} + \text{momentum} \times x_t

@@ -105,6 +105,13 @@ class Tensor(object):
             new.org_shape = self.data.shape
             return new
         return Tensor(self.data.reshape(new_shape))
+    def repeat(self, repeats, dim=0):
+        assert self.data.ndim > dim, "dim could not exceed the data ndim"
+        if self.autograd:
+            new = Tensor(self.data.repeat(repeats, dim), autograd=True, creator=(self,), create_op='repeat')
+            new.repeats = repeats
+            new.dim = dim
+        return Tensor(self.data.repeat(repeats, dim))
 
     def relu(self):
         if self.autograd:
@@ -358,8 +365,40 @@ class Tensor(object):
                 self.creator[0].backward(self.grad, self)
                 self.creator[1].backward(self.grad.__neg__(), self)
             elif self.create_op == 'mul':
-                self.creator[0].backward(self.grad*self.creator[1], self)
-                self.creator[1].backward(self.grad*self.creator[0], self)
+                # check for broadcast
+                creator_0_shape = self.creator[0].shape
+                creator_1_shape = self.creator[1].shape
+                
+                if self.grad.shape == creator_0_shape:
+                    self.creator[0].backward(self.grad*self.creator[1], self)
+                else:
+                    zero_dim = []
+                    for dim in range(len(creator_0_shape)):
+                        if creator_0_shape[dim] == 1:
+                            zero_dim.append(dim)
+                    new_grad = self.grad.sum(axis=tuple(zero_dim), keep_dims=True)
+                    self.creator[0].backward(Tensor(new_grad)*self.creator[1], self)
+
+                if self.grad.shape == creator_0_shape:
+                    self.creator[0].backward(self.grad*self.creator[1], self)
+                else:
+                    zero_dim = []
+                    for dim in range(len(creator_0_shape)):
+                        if creator_0_shape[dim] == 1:
+                            zero_dim.append(dim)
+                    new_grad = self.grad.sum(axis=tuple(zero_dim), keep_dims=True)
+                    self.creator[0].backward(Tensor(new_grad)*self.creator[1], self)
+                
+                if self.grad.shape == creator_1_shape:
+                    self.creator[0].backward(self.grad*self.creator[0], self)
+                else:
+                    zero_dim = []
+                    for dim in range(len(creator_1_shape)):
+                        if creator_1_shape[dim] == 1:
+                            zero_dim.append(dim)
+                    new_grad = self.grad.sum(axis=tuple(zero_dim), keep_dims=True)
+                    self.creator[1].backward(Tensor(new_grad)*self.creator[0], self)
+
             elif self.create_op == 'transpose':
                 self.creator[0].backward(self.grad.transpose(), self)
             elif self.create_op == 'mm':
@@ -408,6 +447,8 @@ class Tensor(object):
             elif self.create_op == 'view':
                 new_grad = self.grad.data.reshape(self.org_shape)
                 self.creator[0].backward(Tensor(new_grad), self)
+            elif self.create_op == 'repeat':
+                pass
             elif self.create_op == 'eq':
                 mask = (self.creator[0].data == self.creator[1].data).float()
                 self.creator[0].backward(Tensor(self.grad.data*mask), self)
@@ -516,6 +557,9 @@ class Tensor(object):
 
     def argmax(self, dim=0):
         return Tensor(self.data.argmax(dim))
+    
+    def numpy(self):
+        return self.data
     
     def dim(self):
         return self.data.ndim

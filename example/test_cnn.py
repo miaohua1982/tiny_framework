@@ -2,12 +2,11 @@ import os
 import sys
 sys.path.insert(0,os.path.dirname(os.path.abspath(__file__))+os.path.sep+os.path.pardir+os.path.sep)
 
-from framework.cnn import Conv2d
+from framework.cnn import Conv2d, BatchNorm2d
 from framework.layer import MaxPool2d
 from framework.tensor import Tensor
 import torch as t
 import numpy as np
-
 
 input = Tensor(np.array([[1,2,3],[4,5,6],[7,8,9]]).reshape(1,1,3,3), autograd=True)
 kernel = np.array([[1,2],[2,1]]).reshape(1,1,2,2)
@@ -90,3 +89,58 @@ print(f_t)
 f_t.backward()
 print('input grad:')
 print(input_t.grad)
+
+#-----------------------------------------------------------------------------------------------
+#batchnorm 2d test
+#test batchnorm forward
+input = np.random.rand(2,2,2,2)
+input_t = t.tensor(input.tolist(), requires_grad=True)
+input = Tensor(input, autograd=True)
+
+bn2d = BatchNorm2d(2)
+bn2d_t = t.nn.BatchNorm2d(2)
+output = bn2d(input)
+output_t = bn2d_t(input_t)
+print('-'*60)
+print('BatchNorm2d forward result compare(in train mode)')
+print(output)
+print(output_t)
+assert np.allclose(output.numpy(), output_t.detach().numpy(), atol=1e-4)
+
+print('torch''s mean & var')
+print(bn2d_t.running_mean)
+print(bn2d_t.running_var)
+print('my mean & var')
+print(bn2d.mi)
+print(bn2d.var)
+
+
+bn2d.eval()
+bn2d_t.eval()
+
+output = bn2d(input)
+output_t = bn2d_t(input_t)
+print('BatchNorm2d forward result compare(in test mode)')
+print(output)
+print(output_t)
+assert np.allclose(output.numpy(), output_t.detach().numpy(), atol=1e-4)
+
+#test batchnorm backward
+print('-----------------BatchNorm2d backward result compare---------------------')
+bn2d = BatchNorm2d(2)
+bn2d_t = t.nn.BatchNorm2d(2)
+
+output_t = bn2d_t(input_t)
+print(output_t)
+f_t = output_t.sum()
+print(f_t)
+f_t.backward()
+print(bn2d_t.weight.grad)
+print(bn2d_t.bias.grad)
+
+output = bn2d(input)
+print(output)
+output = output.flatten()
+f = output.sum()
+print(f)
+f.backward()
