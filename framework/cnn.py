@@ -94,9 +94,9 @@ class BatchNorm2d(Layer):
         # do channels-wise normalization
         if self.is_training:
             cur_std = x.numpy().std(axis=(0,2,3), keepdims=True)
-            output = Tensor((x.numpy()-cur_mi)/(cur_std+self.eps), autograd=x.autograd)
+            output = x.sub_numpy(cur_mi).div_numpy(cur_std+self.eps)
         else:
-            output = Tensor((x.numpy()-self.mi.reshape(1,self.num_features,1,1))/(self.var.reshape(1,self.num_features,1,1)+self.eps)**0.5, autograd=x.autograd)
+            output = x.sub_numpy(self.mi.reshape(1,self.num_features,1,1)).div_numpy((self.var.reshape(1,self.num_features,1,1)+self.eps)**0.5)
 
         if self.affine:
             return output*self.gamma.view((1,self.num_features,1,1))+self.betta.view((1,self.num_features,1,1))

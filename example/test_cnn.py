@@ -8,6 +8,7 @@ from framework.tensor import Tensor
 import torch as t
 import numpy as np
 
+
 input = Tensor(np.array([[1,2,3],[4,5,6],[7,8,9]]).reshape(1,1,3,3), autograd=True)
 kernel = np.array([[1,2],[2,1]]).reshape(1,1,2,2)
 kernel = np.concatenate([kernel, kernel])
@@ -90,10 +91,10 @@ f_t.backward()
 print('input grad:')
 print(input_t.grad)
 
-#-----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
 #batchnorm 2d test
 #test batchnorm forward
-input = np.random.rand(2,2,2,2)
+input = np.random.rand(2,2,2,2)*10
 input_t = t.tensor(input.tolist(), requires_grad=True)
 input = Tensor(input, autograd=True)
 
@@ -134,13 +135,35 @@ output_t = bn2d_t(input_t)
 print(output_t)
 f_t = output_t.sum()
 print(f_t)
+input_t.retain_grad()   # to enable to access grad of non-leaf node's grad
+output_t.retain_grad()
+f_t.retain_grad()
 f_t.backward()
 print(bn2d_t.weight.grad)
 print(bn2d_t.bias.grad)
+print(input_t.grad)
+print(output_t.grad)
+print(f_t.grad)
 
 output = bn2d(input)
 print(output)
-output = output.flatten()
-f = output.sum()
+output_f = output.flatten()
+f = output_f.sum()
 print(f)
 f.backward()
+print(bn2d.gamma.grad)
+print(bn2d.betta.grad)
+print(f.grad)
+print(output_f.grad)
+print(input.grad)
+
+
+print('-----------------BatchNorm2d backward result compare(no affine)---------------------')
+bn2d = BatchNorm2d(2, affine=False)
+bn2d_t = t.nn.BatchNorm2d(2, affine=False)
+output_t = bn2d_t(input_t)
+print(output_t)
+
+output = bn2d(input)
+print(output)
+

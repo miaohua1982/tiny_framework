@@ -50,7 +50,12 @@ class Tensor(object):
         if self.autograd and other.autograd:
             return Tensor(self.data+other.data, autograd=True, creator=(self, other), create_op='add')
         return Tensor(self.data+other.data)
-        
+    
+    def add_numpy(self, n):
+        if self.autograd:
+            return Tensor(self.data+n, autograd=True, creator=(self,), create_op='add_numpy')
+        return Tensor(self.data+n)
+    
     def __neg__(self):
         if self.autograd:
             return Tensor(self.data*-1, autograd=True, creator=(self,), create_op='neg')
@@ -60,12 +65,32 @@ class Tensor(object):
         if self.autograd and other.autograd:
             return Tensor(self.data-other.data, autograd=True, creator=(self, other), create_op='sub')
         return Tensor(self.data-other.data)
-        
+
+    def sub_numpy(self, n):
+        if self.autograd:
+            return Tensor(self.data-n, autograd=True, creator=(self,), create_op='sub_numpy')
+        return Tensor(self.data-n)
+
     def __mul__(self, other):
         if self.autograd and other.autograd:
             return Tensor(self.data*other.data, autograd=True, creator=(self, other), create_op='mul')
         return Tensor(self.data*other.data)
-    
+
+    def mul_numpy(self, n):
+        if self.autograd:
+            new = Tensor(self.data*n, autograd=True, creator=(self,), create_op='mul_numpy')
+            new.multiplier = n
+            return new
+        return Tensor(self.data*n)
+
+    def div_numpy(self, n):
+        assert np.any(n != 0), "can not divided by zero"
+        if self.autograd:
+            new = Tensor(self.data/n, autograd=True, creator=(self,), create_op='div_numpy')
+            new.divider = n
+            return new
+        return Tensor(self.data/n)
+
     def __eq__(self, other):
         if self.autograd and other.autograd:
             return Tensor(self.data==other.data, autograd=True, creator=(self, other), create_op='eq')
@@ -103,8 +128,10 @@ class Tensor(object):
         if self.autograd:
             new = Tensor(self.data.reshape(new_shape), autograd=True, creator=(self,), create_op='view')
             new.org_shape = self.data.shape
+            new.new_shape = new_shape
             return new
         return Tensor(self.data.reshape(new_shape))
+    
     def repeat(self, repeats, dim=0):
         assert self.data.ndim > dim, "dim could not exceed the data ndim"
         if self.autograd:
@@ -356,7 +383,12 @@ class Tensor(object):
             self.grad += grad
    
         if self.creator is not None and self.check_creator_grad_count():
-            if self.create_op == 'add':
+            if self.create_op is None:
+                # no operations
+                # propgate the grad equally back to all creator
+                for one_creator in self.creator:
+                    one_creator.backward(self.grad, self)
+            elif self.create_op == 'add':
                 self.creator[0].backward(self.grad, self)
                 self.creator[1].backward(self.grad, self)
             elif self.create_op == 'neg':
@@ -376,28 +408,20 @@ class Tensor(object):
                     for dim in range(len(creator_0_shape)):
                         if creator_0_shape[dim] == 1:
                             zero_dim.append(dim)
-                    new_grad = self.grad.sum(axis=tuple(zero_dim), keep_dims=True)
-                    self.creator[0].backward(Tensor(new_grad)*self.creator[1], self)
-
-                if self.grad.shape == creator_0_shape:
-                    self.creator[0].backward(self.grad*self.creator[1], self)
-                else:
-                    zero_dim = []
-                    for dim in range(len(creator_0_shape)):
-                        if creator_0_shape[dim] == 1:
-                            zero_dim.append(dim)
-                    new_grad = self.grad.sum(axis=tuple(zero_dim), keep_dims=True)
-                    self.creator[0].backward(Tensor(new_grad)*self.creator[1], self)
+                    new_grad = self.grad*self.creator[1]
+                    new_grad = new_grad.data.sum(axis=tuple(zero_dim), keepdims=True)
+                    self.creator[0].backward(Tensor(new_grad), self)
                 
                 if self.grad.shape == creator_1_shape:
-                    self.creator[0].backward(self.grad*self.creator[0], self)
+                    self.creator[1].backward(self.grad*self.creator[0], self)
                 else:
                     zero_dim = []
                     for dim in range(len(creator_1_shape)):
                         if creator_1_shape[dim] == 1:
                             zero_dim.append(dim)
-                    new_grad = self.grad.sum(axis=tuple(zero_dim), keep_dims=True)
-                    self.creator[1].backward(Tensor(new_grad)*self.creator[0], self)
+                    new_grad = self.grad*self.creator[0]
+                    new_grad = new_grad.data.sum(axis=tuple(zero_dim), keepdims=True)
+                    self.creator[1].backward(Tensor(new_grad), self)
 
             elif self.create_op == 'transpose':
                 self.creator[0].backward(self.grad.transpose(), self)
@@ -445,7 +469,17 @@ class Tensor(object):
                 new_grad = self.grad.data.reshape(self.org_shape)
                 self.creator[0].backward(Tensor(new_grad), self)
             elif self.create_op == 'view':
-                new_grad = self.grad.data.reshape(self.org_shape)
+                grad_shape = self.grad.shape
+                if np.prod(grad_shape) == np.prod(self.new_shape):  # number of elements must be equal
+                    new_grad = self.grad.data.reshape(self.org_shape)
+                else:
+                    zero_dim = []
+                    for dim in range(len(self.new_shape)):
+                        if self.new_shape[dim] == 1:
+                            zero_dim.append(dim)
+                    new_grad = self.grad.data.sum(axis=tuple(zero_dim), keepdims=True)
+                    new_grad = new_grad.reshape(self.org_shape)
+
                 self.creator[0].backward(Tensor(new_grad), self)
             elif self.create_op == 'repeat':
                 pass
@@ -524,6 +558,13 @@ class Tensor(object):
 
                 self.creator[0].backward(Tensor(input_grad), self)
                 self.creator[1].backward(Tensor(kernel_grad), self)
+            elif self.create_op in ('add_numpy', 'sub_numpy'):
+                self.creator[0].backward(self.grad, self)
+            elif self.create_op == 'mul_numpy':
+                self.creator[0].backward(Tensor(self.grad.data*self.multiplier), self)
+            elif self.create_op == 'div_numpy':
+                self.creator[0].backward(Tensor(self.grad.data/self.divider), self)
+
             
     def zero_grad(self):
         self.grad = None
