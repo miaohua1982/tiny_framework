@@ -3,6 +3,7 @@ from .layer import Layer, Parameter
 from .tensor import Tensor
 from .init import kaiming_uniform, kaiming_uniform_bias
 import numpy as np
+import conv_operations as co
 
 
 class Conv2d(Layer):
@@ -71,37 +72,31 @@ class BatchNorm2d(Layer):
 
         if affine:
             self.gamma = Tensor(np.ones(num_features, dtype=np.float32), autograd=True)
-            self.betta = Tensor(np.zeros(num_features, dtype=np.float32), autograd=True)
+            self.beta = Tensor(np.zeros(num_features, dtype=np.float32), autograd=True)
             self.parameters.append(Parameter(self.get_name('BatchNorm2d_Gamma_'), self.gamma))
-            self.parameters.append(Parameter(self.get_name('BatchNorm2d_Betta_'), self.betta))
+            self.parameters.append(Parameter(self.get_name('BatchNorm2d_Betta_'), self.beta))
         else:
-            self.gamma = None
-            self.betta = None
+            self.gamma = Tensor(np.ones(num_features, dtype=np.float32))
+            self.beta = Tensor(np.zeros(num_features, dtype=np.float32))
 
     def forward(self, x):
         assert x.dim() == 4, "input features should have 4 dim in batchnorm2d operation"
 
         if self.is_training and self.track_running_states:
             self.num_batches_tracked = self.num_batches_tracked+1
+        
+        if self.is_training:
             if self.momentum is None:
                 self.momentum = 1.0/float(self.num_batches_tracked)
-            cur_mi = x.numpy().mean(axis=(0,2,3), keepdims=True) 
-            self.mi = (1-self.momentum)*self.mi+self.momentum*cur_mi.flatten()
+            # do channel-wise normalization
+            output, cur_mi, cur_var = x.batchnorm2d(self.num_features, self.gamma, self.beta, self.eps, self.affine) 
             
-            cur_var = x.numpy().var(axis=(0,2,3), keepdims=True, ddof=1)
-            self.var = (1-self.momentum)*self.var+self.momentum*cur_var.flatten()
-
-        # do channels-wise normalization
-        if self.is_training:
-            cur_std = x.numpy().std(axis=(0,2,3), keepdims=True)
-            output = x.sub_numpy(cur_mi).div_numpy(cur_std+self.eps)
+            self.mi = (1-self.momentum)*self.mi+self.momentum*cur_mi
+            self.var = (1-self.momentum)*self.var+self.momentum*cur_var
         else:
-            output = x.sub_numpy(self.mi.reshape(1,self.num_features,1,1)).div_numpy((self.var.reshape(1,self.num_features,1,1)+self.eps)**0.5)
-
-        if self.affine:
-            return output*self.gamma.view((1,self.num_features,1,1))+self.betta.view((1,self.num_features,1,1))
-        else:
-            return output
+            output = x.batchnorm2d_eval(self.mi, self.var, self.gamma, self.beta, self.eps, self.affine) 
+        
+        return output
     
     def __call__(self, input):
         return self.forward(input)

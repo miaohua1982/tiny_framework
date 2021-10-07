@@ -355,11 +355,218 @@ py::array_t<float> maxpool2d_backward(const py::array_t<float>& grad_output, con
     return grad_input;
 }
 
+void batchnorm2d_channelwise_stats(const py::array_t<float>& input, py::array_t<float>& mi, py::array_t<float>& var, int ddof=0) 
+{
+    py::buffer_info input_buf = input.request();
+    
+    size_t bs = input_buf.shape[0];
+    size_t channels = input_buf.shape[1];
+    size_t dh = input_buf.shape[2];
+    size_t dw = input_buf.shape[3];
+    float num = (float)bs*dh*dw;
+
+    auto input_data = input.unchecked<4>();
+    auto mi_data = mi.mutable_unchecked<1>();
+    auto var_data = var.mutable_unchecked<1>();
+
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t c = 0; c < channels; ++c) {
+            for(size_t h = 0; h < dh; ++h)
+                for(size_t w = 0; w < dw; ++w)
+                    mi_data(c) += input_data(b, c, h, w);
+        }
+    
+    for(size_t c = 0; c < channels; ++c)
+        mi_data(c) /= num;
+
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t c = 0; c < channels; ++c) {
+            for(size_t h = 0; h < dh; ++h)
+                for(size_t w = 0; w < dw; ++w) { 
+                    float t = input_data(b, c, h, w)-mi_data(c);
+                    var_data(c) += t*t;
+                }
+        }
+
+    for(size_t c = 0; c < channels; ++c)
+        var_data(c) /= (num-ddof);
+}
+
+void batchnorm2d_forward(const py::array_t<float>& input, py::array_t<float>& mi, py::array_t<float>& var, py::array_t<float>& var_nobias, const py::array_t<float>& gamma,const py::array_t<float>& beta, py::array_t<float>& output, float eps, bool affine=true) 
+{
+    batchnorm2d_channelwise_stats(input, mi, var, 0);
+
+    py::buffer_info input_buf = input.request();
+    
+    size_t bs = input_buf.shape[0];
+    size_t channels = input_buf.shape[1];
+    size_t dh = input_buf.shape[2];
+    size_t dw = input_buf.shape[3];
+    float num = (float)bs*dh*dw;
+
+    auto input_data = input.unchecked<4>();
+    auto mi_data = mi.unchecked<1>();
+    auto var_data = var.unchecked<1>();
+    auto var_nobias_data = var_nobias.mutable_unchecked<1>();
+    auto gamma_data = gamma.unchecked<1>();
+    auto beta_data = beta.unchecked<1>();
+    auto output_data = output.mutable_unchecked<4>();
+
+    for(size_t b = 0; b < bs; ++b) {
+        for(size_t c = 0; c < channels; ++c) {
+            float m = mi_data(c);
+            float v = var_data(c);
+            float g = gamma_data(c);
+            float be = beta_data(b);
+            float s = sqrt(v+eps);
+            for(size_t h = 0; h < dh; ++h)
+                for(size_t w = 0; w < dw; ++w) {
+                    float t = (input_data(b, c, h, w)-m)/s;
+                    if(affine) 
+                       t = t*g+be;
+                    output_data(b, c, h, w) = t;
+                }
+        }
+    }
+
+    for(size_t c = 0; c < channels; ++c)
+        var_nobias_data(c) = var_data(c)*num/(num-1.0f);  // var's no bias calc
+}
+
+void batchnorm2d_forward_eval(const py::array_t<float>& input, const py::array_t<float>& mi,const py::array_t<float>& var, const py::array_t<float>& gamma,const py::array_t<float>& beta, py::array_t<float>& output, float eps, bool affine=true) 
+{
+    py::buffer_info input_buf = input.request();
+    
+    size_t bs = input_buf.shape[0];
+    size_t channels = input_buf.shape[1];
+    size_t dh = input_buf.shape[2];
+    size_t dw = input_buf.shape[3];
+
+    auto input_data = input.unchecked<4>();
+    auto mi_data = mi.unchecked<1>();
+    auto var_data = var.unchecked<1>();
+    auto gamma_data = gamma.unchecked<1>();
+    auto beta_data = beta.unchecked<1>();
+    auto output_data = output.mutable_unchecked<4>();
+
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t c = 0; c < channels; ++c) {
+            float m = mi_data(c);
+            float v = var_data(c);
+            float g = gamma_data(c);
+            float be = beta_data(b);
+            float s = sqrt(v+eps);
+            for(size_t h = 0; h < dh; ++h)
+                for(size_t w = 0; w < dw; ++w) {
+                    float t = (input_data(b, c, h, w)-m)/s;
+                    if(affine) 
+                       t = t*g+be;
+                    output_data(b, c, h, w) = t;
+                }
+            }
+}
+
+
+void batchnorm2d_backward(const py::array_t<float>& input, const py::array_t<float>& mi,const py::array_t<float>& var, const py::array_t<double>& grad_output, const py::array_t<float>& gamma,
+                          py::array_t<double>& grad_input, py::array_t<double>& grad_gamma, py::array_t<double>& grad_beta, float eps, bool affine) 
+{
+    py::buffer_info input_buf = input.request();
+    
+    size_t bs = input_buf.shape[0];
+    size_t channels = input_buf.shape[1];
+    size_t dh = input_buf.shape[2];
+    size_t dw = input_buf.shape[3];
+    float num = (float)bs*dh*dw;
+
+    auto dvar = py::array_t<double>(channels);
+    auto dmu = py::array_t<double>(channels);
+
+    auto input_data = input.unchecked<4>();
+    auto mi_data = mi.unchecked<1>();
+    auto dmu_data = dmu.mutable_unchecked<1>();
+    auto var_data = var.unchecked<1>();
+    auto dvar_data = dvar.mutable_unchecked<1>();
+    auto grad_data = grad_output.unchecked<4>();
+    auto newgrad_data = grad_input.mutable_unchecked<4>();
+    auto dbeta_data = grad_beta.mutable_unchecked<1>();
+    auto dgamma_data = grad_gamma.mutable_unchecked<1>();
+    auto gamma_data = gamma.unchecked<1>();
+    for(size_t c = 0; c < channels; ++c) {
+        dvar_data(c) = 0.0;
+        dmu_data(c) = 0.0;
+    }
+    // dvar, dgamma, dbeta
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t c = 0; c < channels; ++c) {
+            float m = mi_data(c);
+            float v = var_data(c);
+            float ga = gamma_data(c);
+            float s = 1.0f/sqrt(v+eps);
+            float p = -0.5f*pow((v+eps), -1.5f);
+            for(size_t h = 0; h < dh; ++h) {
+                for(size_t w = 0; w < dw; ++w) {
+                    //dvar = np.sum(dy*(x-mu)*(-1./2.)*(var+self.eps)**(-3./2.), axis=(0,2,3), keepdims=True)
+                    double g = grad_data(b, c, h, w);
+                    double t = g*ga*(input_data(b, c, h, w)-m)*p;
+                    dvar_data(c) += t;
+                    //dmu_data(c) += g*ga*s+t*-2.0f*(input_data(b,c,h,w)-m)/num;
+                    if(affine) {
+                        // dbeta
+                        dbeta_data(c) += g;
+                        // dgamma
+                        dgamma_data(c) += g*(input_data(b,c,h,w)-m)*s;
+                    }
+                }
+            }
+
+        }
+
+    // dmu
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t c = 0; c < channels; ++c) {
+            float m = mi_data(c);
+            float v = var_data(c);
+            float ga = gamma_data(c);
+            double dv = dvar_data(c);
+            float s = -1.0f/sqrt(v+eps);
+
+            for(size_t h = 0; h < dh; ++h)
+                for(size_t w = 0; w < dw; ++w) {
+                    double g = grad_data(b, c, h, w);
+                    //dmu = np.sum(dy*-1*(var+self.eps)**(-1./2.), axis=(0,2,3), keepdims=True)+dvar*np.sum(-2.*(x-mu), axis=(0,2,3), keepdims=True)*1.0/N/H/W
+                    dmu_data(c) += g*ga*s+dv*-2.0f*(input_data(b,c,h,w)-m)/num;
+                }
+        }  
+
+    // dx
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t c = 0; c < channels; ++c) {
+            float m = mi_data(c);
+            float v = var_data(c);
+            float ga = gamma_data(c);
+            double dv = dvar_data(c);
+            double dm = dmu_data(c);
+            float s = 1.0f/sqrt(v+eps);
+
+            for(size_t h = 0; h < dh; ++h)
+                for(size_t w = 0; w < dw; ++w) {
+                    newgrad_data(b,c,h,w) = ga*grad_data(b,c,h,w)*s+dv*2.0f*(input_data(b,c,h,w)-m)/num+dm/num;
+                }
+        }        
+    //dvar = np.sum(dy*(x-mu)*(-1./2.)*(var+self.eps)**(-3./2.), axis=(0,2,3), keepdims=True)
+    //dmu = np.sum(dy*-1*(var+self.eps)**(-1./2.), axis=(0,2,3), keepdims=True)+dvar*np.sum(-2.*(x-mu), axis=(0,2,3), keepdims=True)*1.0/N/H/W
+    //dx = dy*(var+self.eps)**(-1./2.)+dvar*2.0*(x-mu)/N/H/W+dmu*1./N/H/W
+}
+
 PYBIND11_MODULE(conv_operations, m) {
     m.doc() = "conv2d, maxpool2d forward & backward with pybind11";
 
 	m.attr("__version__") = "0.0.1";
     m.def("add", &add, "for test");
+    m.def("batchnorm2d_channelwise_stats", &batchnorm2d_channelwise_stats, "do var & mean for batchnorm2d");
+    m.def("batchnorm2d_forward", &batchnorm2d_forward, "A function do batchnorm2d forward");
+    m.def("batchnorm2d_forward_eval", &batchnorm2d_forward_eval, "A function do batchnorm2d forward in eval mode");
+    m.def("batchnorm2d_backward", &batchnorm2d_backward, "A function do batchnorm2d backward");
     m.def("print_4darray", &print_4darray, "print 4d array for debug");
     m.def("conv2d_forward_withbias", &conv2d_forward_withbias, "A function do conv2d forward(with bias) operation according to input features & kernel");
     m.def("conv2d_forward_nobias", &conv2d_forward_nobias, "A function do conv2d forward(without bias) operation according to input features & kernel");

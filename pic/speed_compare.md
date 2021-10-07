@@ -77,3 +77,49 @@ kernel_grad = np.zeros((2,1,2,2), dtype=np.float32)
 bias_grad = np.zeros(2, dtype=np.float32)
 input_grad = co.conv2d_backward_withbias(grad_output, padding_feat, conv2d_t.weight.data.numpy(), conv2d_t.bias.data.numpy(), kernel_grad, bias_grad, 1, 1)
 print(input_grad)          # compare to input.grad
+
+#-----------------------------------------------------------------------------
+# batchnorm2d speed test
+input = np.random.rand(2,2,2,2).astype(np.float32)
+input_t = t.tensor(input.tolist(), requires_grad=True)
+bn2d_t = t.nn.BatchNorm2d(2)
+
+cur_mi = np.zeros(input.shape[1], dtype=np.float32) 
+cur_var = np.zeros(input.shape[1], dtype=np.float32)
+cur_var_nobias = np.zeros(input.shape[1], dtype=np.float32)
+output = np.zeros(input.shape, dtype=np.float32)
+gamma = np.ones(input.shape[1], dtype=np.float32)
+beta = np.zeros(input.shape[1], dtype=np.float32)
+eps = 1e-5
+affine = True
+
+%timeit output_t = bn2d_t(input_t)
+%timeit co.batchnorm2d_forward(input, cur_mi, cur_var, cur_var_nobias, gamma, beta, output, eps, affine)
+
+
+input = np.random.rand(2,2,2,2).astype(np.float32)
+input_t = t.tensor(input.tolist(), requires_grad=True)
+bn2d_t = t.nn.BatchNorm2d(2)
+
+%%timeit
+output_t = bn2d_t(input_t)
+f_t = output_t.sum()
+f_t.backward()     # only the scalar can backward
+
+
+%%timeit
+cur_mi = np.zeros(input.shape[1], dtype=np.float32) 
+cur_var = np.zeros(input.shape[1], dtype=np.float32)
+cur_var_nobias = np.zeros(input.shape[1], dtype=np.float32)
+output = np.zeros(input.shape, dtype=np.float32)
+gamma = np.ones(input.shape[1], dtype=np.float32)
+beta = np.zeros(input.shape[1], dtype=np.float32)
+eps = 1e-5
+affine = True
+grad_output = np.ones(input.shape, dtype=np.float32)
+grad_input = np.zeros(input.shape, dtype=np.float64)
+grad_gamma = np.zeros(input.shape[1], dtype=np.float64)
+grad_beta = np.zeros(input.shape[1], dtype=np.float64)
+
+co.batchnorm2d_forward(input, cur_mi, cur_var, cur_var_nobias, gamma, beta, output, eps, affine)
+co.batchnorm2d_backward(input, cur_mi, cur_var, grad_output, gamma, grad_input, grad_gamma, grad_beta, eps, affine)

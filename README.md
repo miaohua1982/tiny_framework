@@ -3,7 +3,7 @@ Tiny Framework
 It is a tiny framework for teaching purpose to learn how forward & backward work in neural network.
 The repo also includes some manual scripts for nn teaching under folder *manual*
 
-I rewrite conv & max pool operation in c++, which speedup the forward&backward almost 100 times.
+I rewrite conv & max pool & batchnorm operation in c++, which speedup the forward&backward almost 100 times.
 
 To install the module conv_operations you should have [pybind11](https://github.com/pybind/pybind11/tree/stable) installed.
 
@@ -26,5 +26,7 @@ Here is some speed compare between my code and torch(note all code is running on
 ![the maxpool2d forward operation](pic/maxpool2d_forward_running_time.png)  
 4.the maxpool2d forward&backward operation  
 ![the maxpool2d forward&backward operation](pic/maxpool2d_forward_and_backward_opt_running_time.png)  
-
-\hat{x}_\text{new} = (1 - \text{momentum}) \times \hat{x} + \text{momentum} \times x_t
+5.the batchnorm2d forward operation  
+![the batchnorm2d forward operation](pic/batchnorm2d_forward_opt_running_time.png)  
+6.the batchnorm2d forward&backward operation  
+![the batchnorm2d forward&backward operation](pic/batchnorm2d_forward_and_backward_opt_running_time.png)  
