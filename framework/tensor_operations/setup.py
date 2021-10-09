@@ -22,7 +22,7 @@ __version__ = "0.0.1"
 #   reproducible builds (https://github.com/pybind/python_example/pull/53)
 
 ext_modules = [
-    Pybind11Extension("conv_operations",
+    Pybind11Extension("tensor_operations",
         ["src/operations.cpp"],
         # Example: passing in the version to the compiled code
         define_macros = [('VERSION_INFO', __version__)],
@@ -35,7 +35,7 @@ setup(
     author="victor miao",
     author_email="miaohua1982@gmail.com",
     url="https://github.com/miaohua1982/tiny_framework",
-    description="A c++ version conv2d/maxpool2d/batchnorm2d operations project using pybind11",
+    description="A c++ version of some tensor operations project using pybind11",
     long_description="",
     ext_modules=ext_modules,
     extras_require={"test": "pytest"},
