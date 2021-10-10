@@ -1,4 +1,5 @@
 import numpy as np
+import uuid
 import conv_operations as co
 
 class Tensor(object):
@@ -13,7 +14,7 @@ class Tensor(object):
         self.children = {}
         self.restore_children = {}
         if id is None:
-            id = np.random.choice(10000)
+            id = uuid.uuid1().hex
         self.id = id
         
         if creator is not None:
@@ -138,6 +139,7 @@ class Tensor(object):
             new = Tensor(self.data.repeat(repeats, dim), autograd=True, creator=(self,), create_op='repeat')
             new.repeats = repeats
             new.dim = dim
+            return new
         return Tensor(self.data.repeat(repeats, dim))
 
     def relu(self):
@@ -335,6 +337,22 @@ class Tensor(object):
 
         new = Tensor(output)
         return new
+    
+    def dropout2d(self, p, is_training):
+        if is_training == False:  # in eval mode
+            return self
+        # traning mode
+        c = self.shape[1]
+        keep_prob = 1 - p
+        scale = 1 / keep_prob
+        keep_mask = np.random.binomial(n=1, p=keep_prob, size=c).reshape((1,c,1,1))
+        ret = self.data * keep_mask * scale
+        if self.autograd:
+            new = Tensor(ret, autograd=True, creator=(self,), create_op='dropout2d')
+            new.scale = scale
+            new.keep_mask = keep_mask
+            return new
+        return Tensor(ret)
 
     def flatten(self):
         new_data = self.data.flatten()
@@ -609,6 +627,9 @@ class Tensor(object):
                 #dmu = np.sum(dy*-1*(var+self.eps)**(1./2.), axis=(0,2,3), keepdims=True)+dvar*np.sum(-2.*(x-mu), axis=(0,2,3), keepdims=True)*1.0/N/H/W
                 #dx = dy*(var+self.eps)**(1./2.)+dvar*2.0*(x-mu)/N/H/W+dmu*1./N/H/W
                 #self.creator[0].backward(dx, self)
+            elif self.create_op == 'dropout2d':
+                ret = self.grad.data * self.keep_mask * self.scale
+                self.creator[0].backward(Tensor(ret), self)
             elif self.create_op in ('add_numpy', 'sub_numpy'):
                 self.creator[0].backward(self.grad, self)
             elif self.create_op == 'mul_numpy':

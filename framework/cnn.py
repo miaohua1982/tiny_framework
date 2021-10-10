@@ -1,4 +1,3 @@
-from torch import autograd
 from .layer import Layer, Parameter
 from .tensor import Tensor
 from .init import kaiming_uniform, kaiming_uniform_bias
@@ -55,7 +54,19 @@ class Conv2d(Layer):
     def __repr__(self):
         return self.name+':[\n'+super().__repr__()+'\n]\n'
 
+class Dropout2d(Layer):
+    def __init__(self, p=0.5):
+        super(Dropout2d, self).__init__()
+        self.name = self.get_name('Dropout2d')
 
+        self.prob = p
+        
+    def forward(self, x):
+        return x.dropout2d(self.prob, self.is_training)
+    
+    def __call__(self, x):
+        self.forward(x)
+    
 class BatchNorm2d(Layer):
     def __init__(self, num_features, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True):
         super(BatchNorm2d, self).__init__()
