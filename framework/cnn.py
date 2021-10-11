@@ -1,14 +1,12 @@
-from .layer import Layer, Parameter
-from .tensor import Tensor
+from .layer import Layer
+from .parameter import Parameter
 from .init import kaiming_uniform, kaiming_uniform_bias
 import numpy as np
-import conv_operations as co
 
 
 class Conv2d(Layer):
     def __init__(self, input_channels, output_channels, kernel_size, stride=1, bias=True, padding=0):
         super(Conv2d, self).__init__()
-        self.name = self.get_name('Conv2d_')
 
         self.input_channels = input_channels
         self.output_channels = output_channels
@@ -17,14 +15,12 @@ class Conv2d(Layer):
         self.kernel_size = kernel_size
 
         kernel_weights = kaiming_uniform((output_channels, input_channels, kernel_size, kernel_size), a=np.sqrt(5))
-        self.kernel = Tensor(kernel_weights, autograd=True)
-        self.parameters.append(Parameter(self.get_name('Conv2d_Weights_'), self.kernel))
+        self.kernel = Parameter(self.get_name('Conv2d_Weights_'), kernel_weights, requires_grad=True)
 
         # add bias if needed
         if bias:
             bias_weights = kaiming_uniform_bias((output_channels, input_channels, kernel_size, kernel_size), (output_channels,))
-            self.bias = Tensor(bias_weights, autograd=True)
-            self.parameters.append(Parameter(self.get_name('Conv2d_Bias_'), self.bias))
+            self.bias = Parameter(self.get_name('Conv2d_Bias_'), bias_weights, requires_grad=True)
         else:
             self.bias = None
    
@@ -51,26 +47,9 @@ class Conv2d(Layer):
     def __call__(self, input):
         return self.forward(input)
 
-    def __repr__(self):
-        return self.name+':[\n'+super().__repr__()+'\n]\n'
-
-class Dropout2d(Layer):
-    def __init__(self, p=0.5):
-        super(Dropout2d, self).__init__()
-        self.name = self.get_name('Dropout2d')
-
-        self.prob = p
-        
-    def forward(self, x):
-        return x.dropout2d(self.prob, self.is_training)
-    
-    def __call__(self, x):
-        self.forward(x)
-    
 class BatchNorm2d(Layer):
     def __init__(self, num_features, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True):
         super(BatchNorm2d, self).__init__()
-        self.name = self.get_name('BatchNorm2d_')
 
         self.num_features = num_features
         self.eps = eps
@@ -81,14 +60,8 @@ class BatchNorm2d(Layer):
         self.mi = np.zeros(num_features, dtype=np.float32)
         self.var = np.ones(num_features, dtype=np.float32)
 
-        if affine:
-            self.gamma = Tensor(np.ones(num_features, dtype=np.float32), autograd=True)
-            self.beta = Tensor(np.zeros(num_features, dtype=np.float32), autograd=True)
-            self.parameters.append(Parameter(self.get_name('BatchNorm2d_Gamma_'), self.gamma))
-            self.parameters.append(Parameter(self.get_name('BatchNorm2d_Betta_'), self.beta))
-        else:
-            self.gamma = Tensor(np.ones(num_features, dtype=np.float32))
-            self.beta = Tensor(np.zeros(num_features, dtype=np.float32))
+        self.gamma = Parameter(self.get_name('BatchNorm2d_Gamma_'), np.ones(num_features, dtype=np.float32), requires_grad=affine)
+        self.beta = Parameter(self.get_name('BatchNorm2d_Betta_'), np.zeros(num_features, dtype=np.float32), requires_grad=affine)
 
     def forward(self, x):
         assert x.dim() == 4, "input features should have 4 dim in batchnorm2d operation"
@@ -112,7 +85,5 @@ class BatchNorm2d(Layer):
     def __call__(self, input):
         return self.forward(input)
 
-    def __repr__(self):
-        return self.name+':[\n'+super().__repr__()+'\n]\n'
 
         

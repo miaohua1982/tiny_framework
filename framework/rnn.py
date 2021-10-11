@@ -1,7 +1,7 @@
-from .layer import Layer, LinearLayer, Sequential, EmbeddingLayer
+from .layer import LinearLayer, Sequential, EmbeddingLayer
 from .activation import Sigmoid, Tanh
 
-class RNNCell(Layer):
+class RNNCell(Sequential):
     def __init__(self, embedding_size, hidden_size, vocab_size, activation='sigmoid'):
         super(RNNCell, self).__init__()
         self.name = self.get_name('RNNCell_')
@@ -14,9 +14,6 @@ class RNNCell(Layer):
             self.activation = Sigmoid()
         else:
             self.activation = Tanh()
-            
-        self.parameters = self.input_weights.get_parameters()+self.hidden_state.get_parameters()+\
-                           self.activation.get_parameters()+self.output_weights.get_parameters()
         
     def forward(self, input, hidden):
         word_input = self.input_weights.forward(input)
@@ -26,10 +23,10 @@ class RNNCell(Layer):
         
         return output, cur_hidden
     
-    def __repr__(self):
-        return self.name+':[\n'+super().__repr__()+'\n]\n'
+    #def __repr__(self):
+    #    return self.name+':[\n'+super().__repr__()+'\n]\n'
 
-class LstmCell(Layer):
+class LstmCell(Sequential):
     def __init__(self, embedding_size, hidden_size, output_size):
         super(LstmCell, self).__init__()
         self.name = self.get_name('LstmCell_')
@@ -57,13 +54,6 @@ class LstmCell(Layer):
         self.sigmoid = Sigmoid()
         self.tanh = Tanh()
 
-        # add to parameters list   
-        self.parameters = self.forget_weights_h.get_parameters()+self.forget_weights_i.get_parameters()+self.sigmoid.get_parameters()+\
-                          self.input_weights_h.get_parameters()+self.input_weights_i.get_parameters()+self.sigmoid.get_parameters()+\
-                          self.output_weights_h.get_parameters()+self.output_weights_i.get_parameters()+self.sigmoid.get_parameters()+\
-                          self.update_weights_h.get_parameters()+self.update_weights_i.get_parameters()+self.tanh.get_parameters()+\
-                          self.output.get_parameters()
-
     def forward(self, input, hidden):
         prev_hidden, prev_c = hidden
 
@@ -78,18 +68,16 @@ class LstmCell(Layer):
         
         return output, (hidden_state, cell_state)
     
-    def __repr__(self):
-        return self.name+':[\n'+super().__repr__()+'\n]\n'
+    #def __repr__(self):
+    #    return self.name+':[\n'+super().__repr__()+'\n]\n'
 
 class RNN_Model(Sequential):
     def __init__(self, embedding_size, hidden_size, vocab_size):
         super(RNN_Model, self).__init__()
-        
+        self.name = self.__class__.__name__
+
         self.word_embedding = EmbeddingLayer(vocab_size, embedding_size)
         self.rnn = RNNCell(embedding_size, hidden_size, vocab_size)
-        
-        self.add(self.word_embedding)
-        self.add(self.rnn)
         
     def forward(self, input, hidden):
         word_embeds = self.word_embedding.forward(input)
@@ -100,12 +88,10 @@ class RNN_Model(Sequential):
 class Lstm_Model(Sequential):
     def __init__(self, embedding_size, hidden_size, vocab_size):
         super(Lstm_Model, self).__init__()
-        
+        self.name = self.__class__.__name__
+
         self.word_embedding = EmbeddingLayer(vocab_size, embedding_size)
         self.lstm = LstmCell(embedding_size, hidden_size, vocab_size)
-        
-        self.add(self.word_embedding)
-        self.add(self.lstm)
         
     def forward(self, input, hidden):
         word_embeds = self.word_embedding.forward(input)

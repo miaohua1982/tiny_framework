@@ -21,16 +21,19 @@ word_embedding_size = 64
 hidden_size = 64
 vocab_size = 1024
 model = RNN_Model(word_embedding_size, hidden_size, vocab_size)
+print('---------------------RNN_Model-------------------------')
 print(model)
-
+print('---------------------RNN_Model-------------------------')
+print('---------------------LSTM_Model-------------------------')
 model = Lstm_Model(word_embedding_size, hidden_size, vocab_size)
 print(model)
-
+print('---------------------LSTM_Model-------------------------')
 # print conv model (the lenet)
 class LeNet(Sequential):
     def __init__(self, classes_num):
         super(LeNet, self).__init__()
-  
+        self.name = self.__class__.__name__
+
         self.conv1 = Conv2d(1, 8, kernel_size=3, stride=1, padding=1)
         self.max_pool1 = MaxPool2d(kernel_size=2)
         self.conv2 = Conv2d(8, 16, kernel_size=3, stride=1, padding=1)
@@ -39,18 +42,6 @@ class LeNet(Sequential):
         self.linear2 = LinearLayer(512, 256)
         self.classifier = LinearLayer(256, classes_num)
         self.relu = Relu()
-
-        self.add(self.conv1)
-        self.add(self.relu)
-        self.add(self.max_pool1)
-        self.add(self.conv2)
-        self.add(self.relu)
-        self.add(self.max_pool2)
-        self.add(self.linear1)
-        self.add(self.relu)
-        self.add(self.linear1)
-        self.add(self.relu)        
-        self.add(self.classifier)
 
     def forward(self, x):
         x = self.relu(self.conv1(x))
@@ -74,6 +65,6 @@ model = LeNet(classes_num)
 print(model)
 
 # load & save & compare
-save_model(model, 'lenet.dmp')
-model2 = load_model('lenet.dmp')
-print(all(model2.conv1.kernel == model.conv1.kernel))
+#save_model(model, 'lenet.dmp')
+#model2 = load_model('lenet.dmp')
+#print(all(model2.conv1.kernel == model.conv1.kernel))

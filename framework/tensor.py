@@ -354,6 +354,21 @@ class Tensor(object):
             return new
         return Tensor(ret)
 
+    def dropout(self, p, is_training):
+        if is_training == False:  # in eval mode
+            return self
+        # traning mode
+        keep_prob = 1 - p
+        scale = 1 / keep_prob
+        keep_mask = np.random.binomial(n=1, p=keep_prob, size=self.shape)
+        ret = self.data * keep_mask * scale
+        if self.autograd:
+            new = Tensor(ret, autograd=True, creator=(self,), create_op='dropout2d')
+            new.scale = scale
+            new.keep_mask = keep_mask
+            return new
+        return Tensor(ret)
+
     def flatten(self):
         new_data = self.data.flatten()
         if self.autograd:
@@ -642,7 +657,7 @@ class Tensor(object):
         self.grad = None
        
     def step(self, alpha):
-        if self.grad is None:
+        if self.grad is None or self.autograd == False:
             return
         self.data -= self.grad.data*alpha
     

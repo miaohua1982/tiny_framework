@@ -95,18 +95,6 @@ class MyLeNet(Sequential):
         self.classifier = LinearLayer(256, classes_num)
         self.relu = Relu()
 
-        self.add(self.conv1)
-        self.add(self.relu)
-        self.add(self.max_pool1)
-        self.add(self.conv2)
-        self.add(self.relu)
-        self.add(self.max_pool2)
-        self.add(self.linear1)
-        self.add(self.relu)
-        self.add(self.linear2)
-        self.add(self.relu)        
-        self.add(self.classifier)
-
     def forward(self, x):
         x = self.relu(self.conv1(x))
         x = self.max_pool1(x)
