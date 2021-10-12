@@ -54,14 +54,35 @@ class VGG16(Sequential):
 
     def forward(self, x):
         x = self.relu(self.conv1(x))
-        x = self.max_pool1(x)
         x = self.relu(self.conv2(x))
+        x = self.max_pool1(x)
+
+        x = self.relu(self.conv3(x))
+        x = self.relu(self.conv4(x))
         x = self.max_pool2(x)
+
+        x = self.relu(self.conv5(x))
+        x = self.relu(self.conv6(x))
+        x = self.relu(self.conv7(x))
+        x = self.max_pool3(x)
         
+        x = self.relu(self.conv8(x))
+        x = self.relu(self.conv9(x))
+        x = self.relu(self.conv10(x))
+        x = self.max_pool4(x)
+
+        x = self.relu(self.conv11(x))
+        x = self.relu(self.conv12(x))
+        x = self.relu(self.conv13(x))
+        x = self.max_pool5(x)
+
         x = x.view((x.shape[0], -1))
         
-        x = self.relu(self.linear1(x))
-        x = self.relu(self.linear2(x))
+        x = self.dropout(self.relu(self.linear1(x)))
+        x = self.dropout(self.relu(self.linear2(x)))
         pred = self.classifier(x)
         
         return pred
+
+vgg16 = VGG16(1000)
+print(vgg16)

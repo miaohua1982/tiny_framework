@@ -11,7 +11,8 @@ from torch import nn
 from torch.nn import functional as F
 
 from framework.cnn import Conv2d
-from framework.layer import MaxPool2d, LinearLayer, Sequential
+from framework.layer import LinearLayer, Sequential
+from framework.maxpool import MaxPool2d
 from framework.activation import Relu
 from framework.loss import CrossEntropyLoss
 from framework.optimizer import SGD

@@ -1,5 +1,4 @@
 from .parameter import Parameter
-from .init import kaiming_uniform_, kaiming_uniform_bias_
 import numpy as np
 from collections import OrderedDict, namedtuple
 
@@ -89,46 +88,6 @@ class Layer(object):
         else:
             object.__setattr__(self, name, value)
 
-
-class LinearLayer(Layer):
-    def __init__(self, inns, outs, bias=True):
-        super(LinearLayer, self).__init__()
-        
-        self.weights = Parameter(self.get_name('Linear_Weights_'), np.random.rand(inns, outs)*np.sqrt(2.0/inns), requires_grad=True)
-        
-        if bias:
-            self.bias = Parameter(self.get_name('Linear_Bias_'), np.zeros(outs), requires_grad=True)
-        else:
-            self.bias = None
-        
-        self.inns = inns
-        self.outs = outs
-
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        kaiming_uniform_(self.weights, a=np.sqrt(5))
-        
-        if self.bias is not None:
-            kaiming_uniform_bias_(self.weights.shape, self.bias)
-
-    def get_input_features(self):
-        return self.inns
-    
-    def get_output_features(self):
-        return self.outs
-    
-    def forward(self, x):
-        y = x.mm(self.weights)
-        if self.bias is not None:
-            y += self.bias.expand(0, x.shape[0])
-        
-        return y
-
-    def __call__(self, x):
-        return self.forward(x)
-        
-
 class EmbeddingLayer(Layer):
     def __init__(self, vocab_size, hidden_size):
         super(EmbeddingLayer, self).__init__()
@@ -137,27 +96,6 @@ class EmbeddingLayer(Layer):
 
     def forward(self, words):
         return self.embedding_weights.index_select(words)
-
-class MaxPool2d(Layer):
-    def __init__(self, kernel_size, stride=None, padding=0):
-        super(MaxPool2d, self).__init__()
-        self.name = self.get_name('MaxPool2d_')
-
-        if stride is None:
-            stride = kernel_size
-        
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
-
-    def forward(self, input):
-        return input.max_pool2d_cpp(self.kernel_size, self.stride, self.padding)
-    
-    def __call__(self, input):
-        return self.forward(input)
-
-    def __repr__(self):
-        return '['+self.name+':()]'
 
 # add layers supportion(layer container)
 class  Sequential(Layer):
