@@ -1,3 +1,4 @@
+import numpy as np
 from .layer import Layer
 from .parameter import Parameter
 from .init import kaiming_uniform_, kaiming_uniform_bias_

@@ -121,6 +121,9 @@ class  Sequential(Layer):
         for one_layer in self._layers.values():
             one_layer.train()
     
+    def attr_dict(self):
+        return self._layers
+
     def __getattr__(self, name):
         if '_parameters' in self.__dict__:
             _parameters = self.__dict__['_parameters']
@@ -169,6 +172,9 @@ class  Sequential(Layer):
             
         return p
 
+    def __call__(self, x):
+        return self.forward(x)
+    
     def __repr__(self):
         rep = self.name+':[\n'
         for n, layer in self._layers.items():

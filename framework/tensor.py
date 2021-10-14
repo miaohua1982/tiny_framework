@@ -237,7 +237,7 @@ class Tensor(object):
         assert kernel.data.shape[0] == output_channels, "first dim size must be equal to output_channels"
         assert kernel.data.shape[1] == input_channels, "second dim size must be equal to input_channels"
         assert self.data.ndim == 4, "the shape of input data must be 4 in conv2d"
-        assert self.data.shape[2] >= kernel.data.shape[2] and self.data.shape[3] >= kernel.data.shape[3], "the shape of input data must be greater than kernel shape"
+        assert (self.data.shape[2]+padding*2) >= kernel.data.shape[2] and (self.data.shape[3]+padding*2) >= kernel.data.shape[3], "the shape of input data must be greater than kernel shape"
         assert stride >= 1, "stride must be greater or equal than 1"
         assert padding >= 0, "padding must be greater or equal than 0"
 

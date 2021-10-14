@@ -12,7 +12,7 @@ class Dropout(Layer):
         return x.dropout(self.prob, self.is_training)
     
     def __call__(self, x):
-        self.forward(x)
+        return self.forward(x)
     
     def __repr__(self):
         return '['+self.name+':Tensor()]'
@@ -29,7 +29,7 @@ class Dropout2d(Layer):
         return x.dropout2d(self.prob, self.is_training)
     
     def __call__(self, x):
-        self.forward(x)
+        return self.forward(x)
     
     def __repr__(self):
         return '['+self.name+':Tensor()]'

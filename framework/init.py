@@ -11,8 +11,8 @@ def _calculate_fan_in_and_fan_out(tensor_shape):
     if dimensions < 2:
         raise ValueError("Fan in and fan out can not be computed for tensor with fewer than 2 dimensions")
 
-    num_input_fmaps = tensor_shape[1]
-    num_output_fmaps = tensor_shape[0]
+    num_input_fmaps = tensor_shape[0]
+    num_output_fmaps = tensor_shape[1]
     receptive_field_size = 1
     if dimensions > 2:
         receptive_field_size = reduce(lambda x,y:x*y, tensor_shape[2:])
