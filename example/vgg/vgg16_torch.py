@@ -14,7 +14,7 @@ transform = transforms.Compose(
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 trainset = torchvision.datasets.CIFAR10(root=ds_path, train=True, download=False, transform=transform)
 trainloader = t.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True)
-testset = torchvision.datasets.CIFAR10(root=ds_path, train=False, download=True, transform=transform)
+testset = torchvision.datasets.CIFAR10(root=ds_path, train=False, download=False, transform=transform)
 testloader = t.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False)
 classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
@@ -156,8 +156,7 @@ def vgg_train():
         running_acc = 0.0
         for i, data in enumerate(trainloader):
             inputs, labels = data  # labels: [batch_size, 1]
-            # print(i)
-            # print(labels)
+
             # 初始化梯度
             optimizer.zero_grad()
 
@@ -178,6 +177,7 @@ def vgg_train():
                 running_loss = 0.0
                 running_acc = 0.0
         vgg_test(net, criterion)
+
     print('Finished Training')
 
 

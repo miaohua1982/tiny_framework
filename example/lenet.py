@@ -11,11 +11,12 @@ from torch import nn
 from torch.nn import functional as F
 
 from framework.cnn import Conv2d
-from framework.layer import LinearLayer, Sequential
+from framework.layer import Sequential
+from framework.linear import LinearLayer
 from framework.maxpool import MaxPool2d
 from framework.activation import Relu
 from framework.loss import CrossEntropyLoss
-from framework.optimizer import SGD
+from framework.optimizer import SGD, Adam
 from framework.tensor import Tensor
 
 def data_loader(ds_path, batch_size):
@@ -164,11 +165,12 @@ def my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path):
     # loss function
     criterion = CrossEntropyLoss()
     # optimizer
-    sgd = SGD(lenet.get_parameters(), lr=alpha)
+    # optimizer = SGD(lenet.get_parameters(), lr=alpha)
+    optimizer = Adam(lenet.get_parameters(), lr=alpha)
     # data
     train_dataloader, test_dataloader = data_loader(mnist_ds_path, batch_size)
     # train
-    train(epochs, train_dataloader, test_dataloader, lenet, criterion, sgd, True)
+    train(epochs, train_dataloader, test_dataloader, lenet, criterion, optimizer, True)
 
 if __name__ == '__main__':
     batch_size = 32

@@ -1,4 +1,5 @@
 from .tensor import Tensor
+import numpy as np
 
 class Parameter(Tensor):
     r"""A kind of Tensor that is to be considered a module parameter.
@@ -30,3 +31,17 @@ class Parameter(Tensor):
     
     def __repr__(self):
         return self.name+':'+super(Parameter, self).__repr__()
+    
+    def zero_grad(self):
+        self.grad = None
+       
+    def step_sgd(self, alpha):
+        if self.grad is None or self.autograd == False:
+            return
+        self.data -= self.grad.data*alpha
+
+
+    def step_adam(self, alpha, m, v, eps):
+        if self.grad is None or self.autograd == False:
+            return
+        self.data -= alpha * m / (np.sqrt(v) + eps)

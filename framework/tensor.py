@@ -645,6 +645,12 @@ class Tensor(object):
             elif self.create_op == 'dropout2d':
                 ret = self.grad.data * self.keep_mask * self.scale
                 self.creator[0].backward(Tensor(ret), self)
+            elif self.create_op == 'concatenate':
+                d = self.dim
+                slices = np.cumsum([one.shape[d] for one in self.creator])
+                grads = np.split(self.grad.data, slices, axis=d)
+                for idx, one in enumerate(self.creator):
+                    one.backward(grads[idx], self)
             elif self.create_op in ('add_numpy', 'sub_numpy'):
                 self.creator[0].backward(self.grad, self)
             elif self.create_op == 'mul_numpy':
@@ -652,15 +658,6 @@ class Tensor(object):
             elif self.create_op == 'div_numpy':
                 self.creator[0].backward(Tensor(self.grad.data/self.divider), self)
 
-            
-    def zero_grad(self):
-        self.grad = None
-       
-    def step(self, alpha):
-        if self.grad is None or self.autograd == False:
-            return
-        self.data -= self.grad.data*alpha
-    
     def el_num(self):
         return self.data.size
     

@@ -15,7 +15,7 @@ from framework.maxpool import MaxPool2d
 from framework.linear import LinearLayer
 from framework.activation import Relu
 from framework.loss import CrossEntropyLoss
-from framework.optimizer import SGD
+from framework.optimizer import Adam
 from framework.tensor import Tensor
 from framework.utils import save_model
 
@@ -107,7 +107,7 @@ transform = transforms.Compose(
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 trainset = tv.datasets.CIFAR10(root=ds_path, train=True, download=False, transform=transform)
 trainloader = t.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True)
-testset = tv.datasets.CIFAR10(root=ds_path, train=False, download=True, transform=transform)
+testset = tv.datasets.CIFAR10(root=ds_path, train=False, download=False, transform=transform)
 testloader = t.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False)
 classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
@@ -138,7 +138,7 @@ def vgg_test(net, criterion):
 
 def vgg_train():
     epochs = 2  # 训练次数
-    learning_rate = 1e-3  # 学习率
+    learning_rate = 1e-4  # 学习率
 
     net = VGG16(10)
     copy_weights_from_pretrained(net)
@@ -146,8 +146,9 @@ def vgg_train():
     # loss function
     criterion = CrossEntropyLoss()
     # optimizer
-    optimizer = SGD(net.get_parameters(), lr=learning_rate)
-
+    # optimizer = SGD(net.get_parameters(), lr=learning_rate)
+    optimizer = Adam(net.get_parameters(), lr=learning_rate)
+                
     for epoch in range(epochs):  # 迭代
         running_loss = 0.0
         running_acc = 0.0
