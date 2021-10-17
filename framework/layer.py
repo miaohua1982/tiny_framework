@@ -1,7 +1,5 @@
 from .parameter import Parameter
-import numpy as np
-from collections import OrderedDict, namedtuple
-
+from collections import OrderedDict
 
 # add layer support
 class ItemIdGen(object):
@@ -88,14 +86,6 @@ class Layer(object):
         else:
             object.__setattr__(self, name, value)
 
-class EmbeddingLayer(Layer):
-    def __init__(self, vocab_size, hidden_size):
-        super(EmbeddingLayer, self).__init__()
-        w = (np.random.rand(vocab_size, hidden_size)-0.5)/hidden_size
-        self.embedding_weights = Parameter(self.get_name('Embedding_Weights_'), w, requires_grad=True)
-
-    def forward(self, words):
-        return self.embedding_weights.index_select(words)
 
 # add layers supportion(layer container)
 class  Sequential(Layer):

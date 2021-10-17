@@ -1,5 +1,18 @@
-from .layer import LinearLayer, Sequential, EmbeddingLayer
+from .layer import Layer, Sequential
+from .parameter import Parameter
+from .linear import LinearLayer
 from .activation import Sigmoid, Tanh
+import numpy as np
+
+
+class EmbeddingLayer(Layer):
+    def __init__(self, vocab_size, hidden_size):
+        super(EmbeddingLayer, self).__init__()
+        w = (np.random.rand(vocab_size, hidden_size)-0.5)/hidden_size
+        self.embedding_weights = Parameter(self.get_name('Embedding_Weights_'), w, requires_grad=True)
+
+    def forward(self, words):
+        return self.embedding_weights.index_select(words)
 
 class RNNCell(Sequential):
     def __init__(self, embedding_size, hidden_size, vocab_size, activation='sigmoid'):

@@ -650,7 +650,7 @@ class Tensor(object):
                 slices = np.cumsum([one.shape[d] for one in self.creator])
                 grads = np.split(self.grad.data, slices, axis=d)
                 for idx, one in enumerate(self.creator):
-                    one.backward(grads[idx], self)
+                    one.backward(Tensor(grads[idx]), self)
             elif self.create_op in ('add_numpy', 'sub_numpy'):
                 self.creator[0].backward(self.grad, self)
             elif self.create_op == 'mul_numpy':

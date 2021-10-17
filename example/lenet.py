@@ -16,7 +16,7 @@ from framework.linear import LinearLayer
 from framework.maxpool import MaxPool2d
 from framework.activation import Relu
 from framework.loss import CrossEntropyLoss
-from framework.optimizer import SGD, Adam
+from framework.optimizer import SGD, Adam, MoMentumSGD
 from framework.tensor import Tensor
 
 def data_loader(ds_path, batch_size):
@@ -62,10 +62,10 @@ class LeNet(nn.Module):
     def __init__(self, classes_num):
         super(LeNet, self).__init__()
         
-        self.conv1 = nn.Conv2d(1, 8, kernel_size=(3,3), stride=1, padding=1)
-        self.max_pool1 = nn.MaxPool2d((2,2))
-        self.conv2 = nn.Conv2d(8, 16, kernel_size=(3,3), stride=1, padding=1)
-        self.max_pool2 = nn.MaxPool2d((2,2))
+        self.conv1 = nn.Conv2d(1, 8, kernel_size=3, stride=1, padding=1)
+        self.max_pool1 = nn.MaxPool2d(2)
+        self.conv2 = nn.Conv2d(8, 16, kernel_size=3, stride=1, padding=1)
+        self.max_pool2 = nn.MaxPool2d(2)
         self.linear1 = nn.Linear(16*7*7, 512)
         self.linear2 = nn.Linear(512, 256)
         self.classifier = nn.Linear(256, classes_num)
@@ -110,9 +110,6 @@ class MyLeNet(Sequential):
         pred = self.classifier(x)
         
         return pred
-    
-    def __call__(self, x):
-        return self.forward(x)
     
 def train(epochs, train_dataloader, test_dataloader, model, criterion, optimzer, is_my=False):
     for epoch in range(epochs):
@@ -166,7 +163,8 @@ def my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path):
     criterion = CrossEntropyLoss()
     # optimizer
     # optimizer = SGD(lenet.get_parameters(), lr=alpha)
-    optimizer = Adam(lenet.get_parameters(), lr=alpha)
+    optimizer = MoMentumSGD(lenet.get_parameters(), lr=alpha)
+    # optimizer = Adam(lenet.get_parameters(), lr=alpha)
     # data
     train_dataloader, test_dataloader = data_loader(mnist_ds_path, batch_size)
     # train

@@ -25,3 +25,6 @@ def concatenate(cons, dim=0):
         return new_tensor
     
     return Tensor(new)
+
+def relu(input):
+    return input.relu()

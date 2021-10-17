@@ -40,8 +40,15 @@ class Parameter(Tensor):
             return
         self.data -= self.grad.data*alpha
 
-
     def step_adam(self, alpha, m, v, eps):
         if self.grad is None or self.autograd == False:
             return
         self.data -= alpha * m / (np.sqrt(v) + eps)
+    
+    def step_momentum(self, v):
+        if self.grad is None or self.autograd == False:
+            return
+
+        self.data += v
+
+    

@@ -4,7 +4,7 @@ class SGD(object):
     '''
     The vallina sgd optimizer
     '''
-    def __init__(self, parameters, lr, decay=1.0):
+    def __init__(self, parameters, lr=0.01, decay=1.0):
         self.parameters = parameters
         self.alpha = lr
         self.decay = decay
@@ -19,6 +19,34 @@ class SGD(object):
     def step(self):
         for one_param in self.parameters:
             one_param.step_sgd(self.alpha)
+
+
+class MoMentumSGD(object):
+    '''
+    The vallina sgd optimizer
+    '''
+    def __init__(self, parameters, lr, momentum=0.9):
+        self.parameters = parameters
+        self.alpha = lr
+        self.momentum = momentum
+        self.v = {}
+ 
+        for one_param in self.parameters:
+            self.v[one_param.get_name()] = np.zeros(one_param.shape)
+        
+    def zero_grad(self):
+        for one_param in self.parameters:
+            one_param.zero_grad()
+    
+    def step(self):
+        for one_param in self.parameters:
+            if one_param.grad is None or one_param.autograd == False:
+                continue
+
+            key = one_param.get_name()
+            self.v[key] = self.v[key]*self.momentum - self.alpha*one_param.grad.data
+ 
+            one_param.step_momentum(self.v[key])
 
 class Adam(object):
     def __init__(self, parameters, lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8):
