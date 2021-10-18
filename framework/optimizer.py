@@ -23,7 +23,7 @@ class SGD(object):
 
 class MoMentumSGD(object):
     '''
-    The vallina sgd optimizer
+    The Momentum sgd optimizer
     '''
     def __init__(self, parameters, lr, momentum=0.9):
         self.parameters = parameters
@@ -47,6 +47,85 @@ class MoMentumSGD(object):
             self.v[key] = self.v[key]*self.momentum - self.alpha*one_param.grad.data
  
             one_param.step_momentum(self.v[key])
+
+class AdaGrad(object):
+    '''
+    The AdaGrad sgd optimizer
+    '''
+    def __init__(self, parameters, lr=0.01, eps=1e-10):
+        self.parameters = parameters
+        self.alpha = lr
+        self.eps = eps
+        self.h = {}
+ 
+        for one_param in self.parameters:
+            self.h[one_param.get_name()] = np.zeros(one_param.shape)
+        
+    def zero_grad(self):
+        for one_param in self.parameters:
+            one_param.zero_grad()
+
+    def step(self):
+        for one_param in self.parameters:
+            if one_param.grad is None or one_param.autograd == False:
+                continue
+
+            key = one_param.get_name()
+            self.h[key] += one_param.grad.data * one_param.grad.data
+            one_param.step_adagrad(self.alpha, self.h[key], self.eps)
+    
+class RMSprop(object):
+    '''
+    The RMSprop sgd optimizer
+    '''
+    def __init__(self, parameters, lr=0.01, decay=0.99, eps=1e-08):
+        self.parameters = parameters
+        self.alpha = lr
+        self.decay = decay
+        self.eps = eps
+        self.h = {}
+ 
+        for one_param in self.parameters:
+            self.h[one_param.get_name()] = np.zeros(one_param.shape)
+        
+    def zero_grad(self):
+        for one_param in self.parameters:
+            one_param.zero_grad()
+
+    def step(self):
+        for one_param in self.parameters:
+            if one_param.grad is None or one_param.autograd == False:
+                continue
+
+            key = one_param.get_name()
+            self.h[key] = self.h[key]*self.decay + (1-self.decay)*one_param.grad.data * one_param.grad.data
+            one_param.step_adagrad(self.alpha, self.h[key], self.eps)
+
+class Nestrov(object):
+    '''
+    The Nestrov sgd optimizer
+    '''
+    def __init__(self, lr=0.01, momentum=0.9):
+        self.alpha = lr
+        self.momentum = momentum
+        self.v = {}
+ 
+        for one_param in self.parameters:
+            self.v[one_param.get_name()] = np.zeros(one_param.shape)
+        
+    def zero_grad(self):
+        for one_param in self.parameters:
+            one_param.zero_grad()
+ 
+    def step(self):
+        for one_param in self.parameters:
+            if one_param.grad is None or one_param.autograd == False:
+                continue
+
+            key = one_param.get_name()
+            self.v[key] = self.v[key]*self.momentum - self.alpha*one_param.grad.data
+            one_param.step_nestrov(self.alpha, self.momentum, self.v[key])
+
 
 class Adam(object):
     def __init__(self, parameters, lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8):

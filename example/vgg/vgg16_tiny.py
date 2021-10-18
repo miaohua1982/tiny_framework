@@ -15,9 +15,9 @@ from framework.maxpool import MaxPool2d
 from framework.linear import LinearLayer
 from framework.activation import Relu
 from framework.loss import CrossEntropyLoss
-from framework.optimizer import Adam
+from framework.optimizer import SGD, Adam
 from framework.tensor import Tensor
-from framework.utils import save_model
+from framework.utils import save_model, load_model
 
 
 class VGG16(Sequential):
@@ -136,12 +136,15 @@ def vgg_test(net, criterion):
 
     print('In test set loss: %.5f, accu: %.5f' % (running_loss/len(testloader), running_acc/len(testloader)))
 
-def vgg_train():
+def vgg_train(load_path=None):
     epochs = 2  # 训练次数
     learning_rate = 1e-4  # 学习率
 
-    net = VGG16(10)
-    copy_weights_from_pretrained(net)
+    if load_path is None:
+        net = VGG16(10)
+        copy_weights_from_pretrained(net)
+    else:
+        net = load_model(load_path)
 
     # loss function
     criterion = CrossEntropyLoss()
@@ -179,7 +182,7 @@ def vgg_train():
         # do test
         vgg_test(net, criterion)
         # save model
-        save_model(net, 'vgg16_%s_%d.dmp' % (time.strftime('%Y-%m-%d',time.localtime(time.time())), epoch+1))
+        save_model(net, 'model_storage/vgg16_%s_%d.dmp' % (time.strftime('%Y-%m-%d',time.localtime(time.time())), epoch+1))
     print('Finished Training')
 
 

@@ -51,4 +51,15 @@ class Parameter(Tensor):
 
         self.data += v
 
+    def step_adagrad(self, alpha, h, eps):
+        if self.grad is None or self.autograd == False:
+            return
+
+        self.data -= self.grad.data*alpha / (np.sqrt(h)+eps)
+
+    def step_nestrov(self, alpha, momentum, v):
+        if self.grad is None or self.autograd == False:
+            return
+        self.data += momentum*momentum*v - (1+momentum)*alpha*self.grad.data
+
     
