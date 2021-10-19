@@ -1,30 +1,10 @@
 import torch as t
-from torchvision import transforms
 import torchvision
-from torch import optim
 from torch import nn
 
-"""
-1. load CIFAR10 datasets, 3*32*32 for one picture
-"""
-ds_path = '/home/miaohua/Documents/Datasets'
-batch_size = 16
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-trainset = torchvision.datasets.CIFAR10(root=ds_path, train=True, download=False, transform=transform)
-trainloader = t.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True)
-testset = torchvision.datasets.CIFAR10(root=ds_path, train=False, download=False, transform=transform)
-testloader = t.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False)
-classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
-"""
-第二步：定义VGG16 模型，全部的卷积层，也就是特征抽取层和models.vgg16(pretrained=True)是一样的
-       但是FC层根据自己的特点自己定义了。
-"""
-class VGGTest(nn.Module):
+class VGG16(nn.Module):
     def __init__(self, pretrained=True, numClasses=10):
-        super(VGGTest, self).__init__()
+        super(VGG16, self).__init__()
 
         # 100% 还原特征提取层，也就是5层共13个卷积层
         # conv1 1/2
@@ -121,68 +101,3 @@ class VGGTest(nn.Module):
         x = x.view(x.size(0), -1)
         output = self.classifier(x)
         return output
-
-def accu(pred, target):
-    p = t.argmax(pred, dim=1)
-    return (p == target).float().mean()
-
-def vgg_test(net, criterion):
-    running_loss = 0.0
-    running_acc = 0.0
-    for data in testloader:
-        inputs, labels = data  # labels: [batch_size, 1]
-
-        outputs = net(inputs)  # outputs: [batch_size, 10]
-        # loss
-        loss = criterion(outputs, labels)
-        # acc
-        acc = accu(outputs, labels)
-        # 打印loss
-        running_loss += loss.item()
-        running_acc += acc.item()
-
-    print('In test set loss: %.5f, accu: %.5f' % (running_loss/len(testloader), running_acc/len(testloader)))
-
-def vgg_train():
-    epochs = 2  # 训练次数
-    learning_rate = 1e-4  # 学习率
-
-    net = VGGTest()
-    criterion = nn.CrossEntropyLoss() # 交叉熵损失
-    optimizer = optim.Adam(net.parameters(), lr=learning_rate) # Adam优化器
-
-    for epoch in range(epochs):  # 迭代
-        running_loss = 0.0
-        running_acc = 0.0
-        for i, data in enumerate(trainloader):
-            inputs, labels = data  # labels: [batch_size, 1]
-
-            # 初始化梯度
-            optimizer.zero_grad()
-
-            outputs = net(inputs)  # outputs: [batch_size, 10]
-            # print(outputs.shape)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-
-            acc = accu(outputs, labels)
-            # 打印loss
-            running_loss += loss.item()
-            running_acc += acc.item()
-
-            if i % 20 == 19:  # print loss every 20 mini batch
-                print('[%d, %5d] loss: %.5f, accu: %.5f' %
-                      (epoch + 1, i + 1, running_loss / 20.0, running_acc / 20.0))
-                running_loss = 0.0
-                running_acc = 0.0
-        vgg_test(net, criterion)
-
-    print('Finished Training')
-
-
-# 我们测试数据是CIFAR10，图像大小是 32*32*3
-if __name__ == '__main__':
-    vgg_train()
-
-

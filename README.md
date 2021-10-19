@@ -30,3 +30,13 @@ Here is some speed compare between my code and torch(note all code is running on
 ![the batchnorm2d forward operation](pic/batchnorm2d_forward_opt_running_time.png)  
 6.the batchnorm2d forward&backward operation  
 ![the batchnorm2d forward&backward operation](pic/batchnorm2d_forward_and_backward_opt_running_time.png)  
+
+By the tiny framework, we write the LeNet, AlexNet, VGG16 to test the framework, and we use the cnn network to classify cifar10 & mnist dataset to compare pytorch and ours. The result is as followings:  
+1.LeNet on mnist, the first 5 epochs are done by pytorch, the second 5 epochs are done by tiny framework  
+
+![lenet on mnist](pic/lenet_on_mnist.png)  
+
+2.VGG16 on cifar10, the first 2 epochs are  
+ 
+3.We do not use AlexNet on cifar10(only have 32*32 resolution), because AlexNet has 11*11 & 5*5 etc. big cnn kernel, the  
+cifar10 is too small to do that.  

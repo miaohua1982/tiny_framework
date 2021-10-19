@@ -7,8 +7,9 @@ from framework.tensor import Tensor
 from framework.loss import CrossEntropyLoss
 from framework.optimizer import SGD, Adam
 from framework.utils import save_model, load_model
-from alexnet_torch import AlexNet as AlexNet_T
-from alexnet_tiny import AlexNet
+from vgg16_torch import VGG16 as VGG16_T
+from vgg16_tiny import VGG16, copy_weights_from_pretrained
+
 
 import torch as t
 from torchvision import transforms
@@ -55,13 +56,14 @@ def model_test(net, criterion, use_tiny_framework):
 
     print('In test set loss: %.5f, accu: %.5f' % (running_loss/len(testloader), running_acc/len(testloader)))
 
-def model_train(classes_num, use_tiny_framework, model_path):
-    epochs = 2  # 训练次数
+def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
+    epochs = 5  # 训练次数
     learning_rate = 1e-4  # 学习率
 
     if use_tiny_framework:
         if model_path is None:
-            net = AlexNet(classes_num)
+            net = VGG16(classes_num)
+            copy_weights_from_pretrained(net)
         else:
             net = load_model(model_path)
 
@@ -70,7 +72,7 @@ def model_train(classes_num, use_tiny_framework, model_path):
         optimizer = Adam(net.get_parameters(), lr=learning_rate)
     else:
         if model_path is None:
-            net = AlexNet_T(classes_num)
+            net = VGG16_T(classes_num)
         else:
             net = t.load(model_path)
 
@@ -100,11 +102,12 @@ def model_train(classes_num, use_tiny_framework, model_path):
             running_loss += loss.item()
             running_acc += acc.item()
 
-            if i % 20 == 19:  # print loss every 20 mini batch
-                print('[%d, %5d] loss: %.5f, accu: %.5f' %
-                      (epoch + 1, i + 1, running_loss / 20.0, running_acc / 20.0))
+            if i % 20 == 19 and spot_plot:  # print loss every 20 mini batch
+                print('[%s] [%d, %5d] loss: %.5f, accu: %.5f' %
+                      (time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time())), epoch+1, i+1, running_loss/20.0, running_acc/20.0))
                 running_loss = 0.0
                 running_acc = 0.0
+        print('[%d, %5d] loss: %.5f, accu: %.5f' % (epoch+1, epochs, running_loss/len(trainloader), running_acc/len(trainloader)))
         model_test(net, criterion, use_tiny_framework)
         
         if use_tiny_framework:
@@ -119,5 +122,6 @@ def model_train(classes_num, use_tiny_framework, model_path):
 if __name__ == '__main__':
     classes_num = 10
     use_tiny_framework = False
+    spot_plot = False
     model_path = None
-    model_train(classes_num, use_tiny_framework, model_path)
+    model_train(classes_num, use_tiny_framework, spot_plot, model_path)

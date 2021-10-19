@@ -3,10 +3,6 @@ import sys
 sys.path.insert(0,os.path.dirname(os.path.abspath(__file__))+os.path.sep+os.path.pardir+os.path.sep+os.path.pardir+os.path.sep)
 
 import torchvision as tv
-import torch as t
-from torchvision import transforms
-import time
-
 
 from framework.cnn import Conv2d
 from framework.dropout import Dropout
@@ -14,10 +10,6 @@ from framework.layer import Sequential
 from framework.maxpool import MaxPool2d
 from framework.linear import LinearLayer
 from framework.activation import Relu
-from framework.loss import CrossEntropyLoss
-from framework.optimizer import SGD, Adam
-from framework.tensor import Tensor
-from framework.utils import save_model, load_model
 
 
 class VGG16(Sequential):
@@ -99,95 +91,3 @@ def copy_weights_from_pretrained(model):
             model.attr_dict()[v].set_weight(pretrained_params[k].detach().cpu().numpy())
         else:
             model.attr_dict()[v].set_bias(pretrained_params[k].detach().cpu().numpy())
-
-ds_path = '/home/miaohua/Documents/Datasets'
-batch_size = 16
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-trainset = tv.datasets.CIFAR10(root=ds_path, train=True, download=False, transform=transform)
-trainloader = t.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True)
-testset = tv.datasets.CIFAR10(root=ds_path, train=False, download=False, transform=transform)
-testloader = t.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False)
-classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
-
-def accu(pred, target):
-    p = pred.argmax(dim=1)
-    return (p == target).float().mean()
-
-def vgg_test(net, criterion):
-    running_loss = 0.0
-    running_acc = 0.0
-    for data in testloader:
-        inputs, labels = data  # labels: [batch_size, 1]
-
-        inputs = Tensor(inputs.detach().cpu().numpy(), autograd=True)
-        labels = Tensor(labels.detach().cpu().numpy(), autograd=True)
-
-        outputs = net(inputs)  # outputs: [batch_size, 10]
-        # loss
-        loss = criterion(outputs, labels)
-        # acc
-        acc = accu(outputs, labels)
-        # 打印loss
-        running_loss += loss.item()
-        running_acc += acc.item()
-
-    print('In test set loss: %.5f, accu: %.5f' % (running_loss/len(testloader), running_acc/len(testloader)))
-
-def vgg_train(load_path=None):
-    epochs = 2  # 训练次数
-    learning_rate = 1e-4  # 学习率
-
-    if load_path is None:
-        net = VGG16(10)
-        copy_weights_from_pretrained(net)
-    else:
-        net = load_model(load_path)
-
-    # loss function
-    criterion = CrossEntropyLoss()
-    # optimizer
-    # optimizer = SGD(net.get_parameters(), lr=learning_rate)
-    optimizer = Adam(net.get_parameters(), lr=learning_rate)
-                
-    for epoch in range(epochs):  # 迭代
-        running_loss = 0.0
-        running_acc = 0.0
-        for i, data in enumerate(trainloader):
-            inputs, labels = data  # labels: [batch_size, 1]
-
-            inputs = Tensor(inputs.detach().cpu().numpy(), autograd=True)
-            labels = Tensor(labels.detach().cpu().numpy(), autograd=True)
-
-            optimizer.zero_grad()
-
-            outputs = net(inputs)  # outputs: [batch_size, 10]
-            # print(outputs.shape)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-
-            acc = accu(outputs, labels)
-            # 打印loss
-            running_loss += loss.item()
-            running_acc += acc.item()
-
-            if i % 20 == 19:  # print loss every 20 mini batch(20* batch_size)
-                print('[%s] [%d, %5d] loss: %.5f, accu: %.5f' %
-                      (time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time())), epoch+1, i+1, running_loss/20.0, running_acc/20.0))
-                running_loss = 0.0
-                running_acc = 0.0
-        # do test
-        vgg_test(net, criterion)
-        # save model
-        save_model(net, 'model_storage/vgg16_%s_%d.dmp' % (time.strftime('%Y-%m-%d',time.localtime(time.time())), epoch+1))
-    print('Finished Training')
-
-
-# 我们测试数据是CIFAR10，图像大小是 32*32*3
-if __name__ == '__main__':
-    vgg_train()
-
-

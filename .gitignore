@@ -4,3 +4,4 @@ framework/__pycache__/*.pyc
 .DS_Store
 *.dmp
 *.pyc
+*.pkl
