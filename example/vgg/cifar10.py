@@ -1,4 +1,5 @@
 import torch as t
+import numpy as np
 from torchvision import transforms
 import torchvision
 from matplotlib import pyplot as plt
@@ -25,3 +26,20 @@ plt.axis('off')
 plt.title(classes[y[0].item()])
 plt.imshow(im, cmap='BrBG')
 plt.show()
+
+
+from skimage import transform as sktsf
+new_im = x[0,:,:,:]
+new_im = sktsf.resize(new_im.detach().cpu().numpy(), (3, 224, 224), mode='reflect', anti_aliasing=False)
+new_im = np.transpose(new_im, (1, 2, 0))      # sent channel to last dimesion
+print("The new shape is", new_im.shape)
+plotwindow = fig.add_subplot(111)
+plt.axis('off')
+plt.title(classes[y[0].item()])
+plt.imshow(im, cmap='BrBG')
+plt.show()
+
+
+new_im = x.clone()
+new_im = sktsf.resize(new_im.detach().cpu().numpy(), (16, 3, 224, 224), mode='reflect', anti_aliasing=False)
+print("The new shape is", new_im.shape)

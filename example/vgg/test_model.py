@@ -57,7 +57,7 @@ def model_test(net, criterion, use_tiny_framework):
     print('In test set loss: %.5f, accu: %.5f' % (running_loss/len(testloader), running_acc/len(testloader)))
 
 def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
-    epochs = 5  # 训练次数
+    epochs = 10  # 训练次数
     learning_rate = 1e-4  # 学习率
 
     if use_tiny_framework:
@@ -82,6 +82,9 @@ def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
     for epoch in range(epochs):  # 迭代
         running_loss = 0.0
         running_acc = 0.0
+
+        total_loss = 0.0
+        total_acc = 0.0
         for i, data in enumerate(trainloader):
             inputs, labels = data  # labels: [batch_size, 1]
             if use_tiny_framework:
@@ -102,12 +105,15 @@ def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
             running_loss += loss.item()
             running_acc += acc.item()
 
+            total_loss = loss.item()
+            total_acc = acc.item()
+
             if i % 20 == 19 and spot_plot:  # print loss every 20 mini batch
                 print('[%s] [%d, %5d] loss: %.5f, accu: %.5f' %
                       (time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time())), epoch+1, i+1, running_loss/20.0, running_acc/20.0))
                 running_loss = 0.0
                 running_acc = 0.0
-        print('[%d, %5d] loss: %.5f, accu: %.5f' % (epoch+1, epochs, running_loss/len(trainloader), running_acc/len(trainloader)))
+        print('[%d, %5d] loss: %.5f, accu: %.5f' % (epoch+1, epochs, total_loss/len(trainloader), total_acc/len(trainloader)))
         model_test(net, criterion, use_tiny_framework)
         
         if use_tiny_framework:

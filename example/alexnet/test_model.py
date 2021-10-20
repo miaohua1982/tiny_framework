@@ -15,6 +15,7 @@ from torchvision import transforms
 import torchvision
 from torch import optim
 from torch import nn
+from skimage import transform as sktsf
 
 """
 1. load CIFAR10 datasets, 3*32*32 for one picture
@@ -40,9 +41,13 @@ def model_test(net, criterion, use_tiny_framework):
     running_acc = 0.0
     for data in testloader:
         inputs, labels = data  # labels: [batch_size, 1]
+        
+        inputs = sktsf.resize(inputs.detach().cpu().numpy(), (batch_size, 3, 224, 224), mode='reflect', anti_aliasing=False)
         if use_tiny_framework:
-            inputs = Tensor(inputs.detach().cpu().numpy(), autograd=True)
+            inputs = Tensor(inputs, autograd=True)
             labels = Tensor(labels.detach().cpu().numpy(), autograd=True)
+        else:
+            inputs = t.from_numpy(inputs)
         
         outputs = net(inputs)  # outputs: [batch_size, 10]
         # loss
@@ -55,8 +60,8 @@ def model_test(net, criterion, use_tiny_framework):
 
     print('In test set loss: %.5f, accu: %.5f' % (running_loss/len(testloader), running_acc/len(testloader)))
 
-def model_train(classes_num, use_tiny_framework, model_path):
-    epochs = 2  # 训练次数
+def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
+    epochs = 10  # 训练次数
     learning_rate = 1e-4  # 学习率
 
     if use_tiny_framework:
@@ -77,14 +82,23 @@ def model_train(classes_num, use_tiny_framework, model_path):
         criterion = nn.CrossEntropyLoss() # 交叉熵损失
         optimizer = optim.Adam(net.parameters(), lr=learning_rate) # Adam优化器
 
+
     for epoch in range(epochs):  # 迭代
         running_loss = 0.0
         running_acc = 0.0
+
+        total_acc = 0.0
+        total_loss = 0.0
+
         for i, data in enumerate(trainloader):
             inputs, labels = data  # labels: [batch_size, 1]
+
+            inputs = sktsf.resize(inputs.detach().cpu().numpy(), (batch_size, 3, 224, 224), mode='reflect', anti_aliasing=False)
             if use_tiny_framework:
-                inputs = Tensor(inputs.detach().cpu().numpy(), autograd=True)
+                inputs = Tensor(inputs, autograd=True)
                 labels = Tensor(labels.detach().cpu().numpy(), autograd=True)
+            else:
+                inputs = t.from_numpy(inputs)
             
             # 初始化梯度
             optimizer.zero_grad()
@@ -99,12 +113,16 @@ def model_train(classes_num, use_tiny_framework, model_path):
             # 打印loss
             running_loss += loss.item()
             running_acc += acc.item()
+            total_loss += loss.item()
+            total_acc += acc.item()
 
-            if i % 20 == 19:  # print loss every 20 mini batch
-                print('[%d, %5d] loss: %.5f, accu: %.5f' %
-                      (epoch + 1, i + 1, running_loss / 20.0, running_acc / 20.0))
+            if i % 20 == 19 and spot_plot:  # print loss every 20 mini batch
+                print('[%s] [%d, %5d] loss: %.5f, accu: %.5f' %
+                      (time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time())), epoch+1, i+1, running_loss/20.0, running_acc/20.0))
                 running_loss = 0.0
                 running_acc = 0.0
+        print('[%d, %5d] loss: %.5f, accu: %.5f' % (epoch+1, epochs, total_loss/len(trainloader), total_acc/len(trainloader)))
+        
         model_test(net, criterion, use_tiny_framework)
         
         if use_tiny_framework:
@@ -119,5 +137,6 @@ def model_train(classes_num, use_tiny_framework, model_path):
 if __name__ == '__main__':
     classes_num = 10
     use_tiny_framework = False
+    spot_plot = False
     model_path = None
-    model_train(classes_num, use_tiny_framework, model_path)
+    model_train(classes_num, use_tiny_framework, spot_plot, model_path)
