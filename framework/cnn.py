@@ -47,6 +47,45 @@ class Conv2d(Layer):
     def __call__(self, input):
         return self.forward(input)
 
+class BatchNorm1d(Layer):
+    def __init__(self, num_features, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True):
+        super(BatchNorm1d, self).__init__()
+
+        self.num_features = num_features
+        self.eps = eps
+        self.momentum = momentum
+        self.affine = affine
+        self.track_running_states = track_running_stats
+        self.num_batches_tracked = 0
+        self.mi = np.zeros(num_features, dtype=np.float32)
+        self.var = np.ones(num_features, dtype=np.float32)
+
+        self.gamma = Parameter(self.get_name('BatchNorm1d_Gamma_'), np.ones(num_features, dtype=np.float32), requires_grad=affine)
+        self.beta = Parameter(self.get_name('BatchNorm1d_Betta_'), np.zeros(num_features, dtype=np.float32), requires_grad=affine)
+
+    def forward(self, x):
+        assert x.dim() == 2, "input features should have 2 dim in batchnorm1d operation"
+
+        if self.is_training and self.track_running_states:
+            self.num_batches_tracked = self.num_batches_tracked+1
+        
+        if self.is_training:
+            if self.momentum is None:
+                self.momentum = 1.0/float(self.num_batches_tracked)
+            # do channel-wise normalization
+            output, cur_mi, cur_var = x.batchnorm1d(self.num_features, self.gamma, self.beta, self.eps, self.affine) 
+            
+            self.mi = (1-self.momentum)*self.mi+self.momentum*cur_mi
+            self.var = (1-self.momentum)*self.var+self.momentum*cur_var
+        else:
+            output = x.batchnorm1d_eval(self.mi, self.var, self.gamma, self.beta, self.eps, self.affine) 
+        
+        return output
+    
+    def __call__(self, input):
+        return self.forward(input)
+
+
 class BatchNorm2d(Layer):
     def __init__(self, num_features, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True):
         super(BatchNorm2d, self).__init__()

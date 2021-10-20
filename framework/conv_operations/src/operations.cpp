@@ -417,7 +417,7 @@ void batchnorm2d_forward(const py::array_t<float>& input, py::array_t<float>& mi
             float m = mi_data(c);
             float v = var_data(c);
             float g = gamma_data(c);
-            float be = beta_data(b);
+            float be = beta_data(c);
             float s = sqrt(v+eps);
             for(size_t h = 0; h < dh; ++h)
                 for(size_t w = 0; w < dw; ++w) {
@@ -454,7 +454,7 @@ void batchnorm2d_forward_eval(const py::array_t<float>& input, const py::array_t
             float m = mi_data(c);
             float v = var_data(c);
             float g = gamma_data(c);
-            float be = beta_data(b);
+            float be = beta_data(c);
             float s = sqrt(v+eps);
             for(size_t h = 0; h < dh; ++h)
                 for(size_t w = 0; w < dw; ++w) {
@@ -558,15 +558,198 @@ void batchnorm2d_backward(const py::array_t<float>& input, const py::array_t<flo
     //dx = dy*(var+self.eps)**(-1./2.)+dvar*2.0*(x-mu)/N/H/W+dmu*1./N/H/W
 }
 
+void batchnorm1d_channelwise_stats(const py::array_t<float>& input, py::array_t<float>& mi, py::array_t<float>& var, int ddof=0) 
+{
+    py::buffer_info input_buf = input.request();
+    
+    size_t bs = input_buf.shape[0];
+    size_t len = input_buf.shape[1];
+
+    auto input_data = input.unchecked<2>();
+    auto mi_data = mi.mutable_unchecked<1>();
+    auto var_data = var.mutable_unchecked<1>();
+
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t ll = 0; ll < len; ++ll)
+            mi_data(ll) += input_data(b, ll);
+    
+    for(size_t ll = 0; ll < len; ++ll)
+        mi_data(ll) /= (float)bs;
+
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t ll = 0; ll < len; ++ll) {
+            float t = input_data(b, ll)-mi_data(c);
+            var_data(ll) += t*t;
+        }
+
+    for(size_t ll = 0; ll < len; ++ll)
+        var_data(ll) /= (float)(bs-ddof);
+}
+
+void batchnorm1d_forward(const py::array_t<float>& input, py::array_t<float>& mi, py::array_t<float>& var, py::array_t<float>& var_nobias, const py::array_t<float>& gamma,const py::array_t<float>& beta, py::array_t<float>& output, float eps, bool affine=true) 
+{
+    batchnorm1d_channelwise_stats(input, mi, var, 0);
+
+    py::buffer_info input_buf = input.request();
+    
+    size_t bs = input_buf.shape[0];
+    size_t len = input_buf.shape[1];
+    float num = (float)bs;
+
+    auto input_data = input.unchecked<2>();
+    auto mi_data = mi.unchecked<1>();
+    auto var_data = var.unchecked<1>();
+    auto var_nobias_data = var_nobias.mutable_unchecked<1>();
+    auto gamma_data = gamma.unchecked<1>();
+    auto beta_data = beta.unchecked<1>();
+    auto output_data = output.mutable_unchecked<2>();
+
+    for(size_t b = 0; b < bs; ++b) {
+        for(size_t ll = 0; ll < len; ++ll) {
+            float m = mi_data(ll);
+            float v = var_data(ll);
+            float s = sqrt(v+eps);
+
+            float g = gamma_data(ll);
+            float be = beta_data(ll);
+
+            float t = (input_data(b, ll)-m)/s;
+            if(affine) 
+               t = t*g+be;
+            output_data(b, ll) = t;
+        }
+    }
+
+    for(size_t ll = 0; ll < len; ++ll)
+        var_nobias_data(ll) = var_data(ll)*num/(num-1.0f);  // var's no bias value
+}
+
+void batchnorm1d_forward_eval(const py::array_t<float>& input, const py::array_t<float>& mi,const py::array_t<float>& var, const py::array_t<float>& gamma,const py::array_t<float>& beta, py::array_t<float>& output, float eps, bool affine=true) 
+{
+    py::buffer_info input_buf = input.request();
+    
+    size_t bs = input_buf.shape[0];
+    size_t len = input_buf.shape[1];
+
+    auto input_data = input.unchecked<4>();
+    auto mi_data = mi.unchecked<1>();
+    auto var_data = var.unchecked<1>();
+    auto gamma_data = gamma.unchecked<1>();
+    auto beta_data = beta.unchecked<1>();
+    auto output_data = output.mutable_unchecked<4>();
+
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t ll = 0; ll < len; ++ll) {
+            float m = mi_data(ll);
+            float v = var_data(ll);
+            float s = sqrt(v+eps);
+
+            float g = gamma_data(ll);
+            float be = beta_data(ll);
+            
+            float t = (input_data(b, ll)-m)/s;
+            if(affine) 
+                t = t*g+be;
+            output_data(b, c, h, w) = t;
+        }
+}
+
+void batchnorm1d_backward(const py::array_t<float>& input, const py::array_t<float>& mi,const py::array_t<float>& var, const py::array_t<double>& grad_output, const py::array_t<float>& gamma,
+                          py::array_t<double>& grad_input, py::array_t<double>& grad_gamma, py::array_t<double>& grad_beta, float eps, bool affine) 
+{
+    py::buffer_info input_buf = input.request();
+    
+    size_t bs = input_buf.shape[0];
+    size_t len = input_buf.shape[1];
+    float num = (float)bs;
+
+    auto dvar = py::array_t<double>(len);
+    auto dmu = py::array_t<double>(len);
+
+    auto input_data = input.unchecked<2>();
+    auto mi_data = mi.unchecked<1>();
+    auto dmu_data = dmu.mutable_unchecked<1>();
+    auto var_data = var.unchecked<1>();
+    auto dvar_data = dvar.mutable_unchecked<1>();
+    auto grad_data = grad_output.unchecked<2>();
+    auto newgrad_data = grad_input.mutable_unchecked<2>();
+    auto dbeta_data = grad_beta.mutable_unchecked<1>();
+    auto dgamma_data = grad_gamma.mutable_unchecked<1>();
+    auto gamma_data = gamma.unchecked<1>();
+
+    for(size_t ll = 0; ll < len; ++ll) {
+        dvar_data(ll) = 0.0;
+        dmu_data(ll) = 0.0;
+    }
+    // dvar, dgamma, dbeta
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t ll = 0; ll < len; ++ll) {
+            float m = mi_data(ll);
+            float v = var_data(ll);
+            float ga = gamma_data(ll);
+
+            float s = 1.0f/sqrt(v+eps);
+            float p = -0.5f*pow((v+eps), -1.5f);
+            
+            //dvar = np.sum(dy*(x-mu)*(-1./2.)*(var+self.eps)**(-3./2.), axis=(0,2,3), keepdims=True)
+            double g = grad_data(b, ll);
+            double t = g*ga*(input_data(b, ll)-m)*p;
+            dvar_data(ll) += t;
+            if(affine) {
+                // dbeta
+                dbeta_data(ll) += g;
+                // dgamma
+                dgamma_data(ll) += g*(input_data(b,ll)-m)*s;
+            }
+        }
+
+    // dmu
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t ll = 0; ll < len; ++ll) {
+            float m = mi_data(ll);
+            float v = var_data(ll);
+            float ga = gamma_data(ll);
+            double dv = dvar_data(ll);
+            float s = -1.0f/sqrt(v+eps);
+
+            double g = grad_data(b, ll);
+            //dmu = np.sum(dy*-1*(var+self.eps)**(-1./2.), axis=(0,2,3), keepdims=True)+dvar*np.sum(-2.*(x-mu), axis=(0,2,3), keepdims=True)*1.0/N/H/W
+            dmu_data(ll) += g*ga*s+dv*-2.0f*(input_data(b,ll)-m)/num;
+        }  
+
+    // dx
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t ll = 0; ll < len; ++ll) {
+            float m = mi_data(ll);
+            float v = var_data(ll);
+            float ga = gamma_data(ll);
+            double dv = dvar_data(ll);
+            double dm = dmu_data(ll);
+            float s = 1.0f/sqrt(v+eps);
+
+            newgrad_data(b,ll) = ga*grad_data(b,ll)*s+dv*2.0f*(input_data(b,ll)-m)/num+dm/num;
+        }        
+    //dvar = np.sum(dy*(x-mu)*(-1./2.)*(var+self.eps)**(-3./2.), axis=(0,2,3), keepdims=True)
+    //dmu = np.sum(dy*-1*(var+self.eps)**(-1./2.), axis=(0,2,3), keepdims=True)+dvar*np.sum(-2.*(x-mu), axis=(0,2,3), keepdims=True)*1.0/N/H/W
+    //dx = dy*(var+self.eps)**(-1./2.)+dvar*2.0*(x-mu)/N/H/W+dmu*1./N/H/W
+}
+
 PYBIND11_MODULE(conv_operations, m) {
     m.doc() = "conv2d, maxpool2d forward & backward with pybind11";
 
 	m.attr("__version__") = "0.0.1";
     m.def("add", &add, "for test");
+    
     m.def("batchnorm2d_channelwise_stats", &batchnorm2d_channelwise_stats, "do var & mean for batchnorm2d");
     m.def("batchnorm2d_forward", &batchnorm2d_forward, "A function do batchnorm2d forward");
     m.def("batchnorm2d_forward_eval", &batchnorm2d_forward_eval, "A function do batchnorm2d forward in eval mode");
     m.def("batchnorm2d_backward", &batchnorm2d_backward, "A function do batchnorm2d backward");
+
+    m.def("batchnorm1d_channelwise_stats", &batchnorm1d_channelwise_stats, "do var & mean for batchnorm1d");
+    m.def("batchnorm1d_forward", &batchnorm1d_forward, "A function do batchnorm1d forward");
+    m.def("batchnorm1d_forward_eval", &batchnorm1d_forward_eval, "A function do batchnorm1d forward in eval mode");
+    m.def("batchnorm1d_backward", &batchnorm1d_backward, "A function do batchnorm1d backward");
+
     m.def("print_4darray", &print_4darray, "print 4d array for debug");
     m.def("conv2d_forward_withbias", &conv2d_forward_withbias, "A function do conv2d forward(with bias) operation according to input features & kernel");
     m.def("conv2d_forward_nobias", &conv2d_forward_nobias, "A function do conv2d forward(without bias) operation according to input features & kernel");

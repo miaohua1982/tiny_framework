@@ -6,7 +6,7 @@ class ItemIdGen(object):
     def __init__(self):
         self.gen_id = {}
         
-        self.default_items = ['Dropout2d_', 'Dropout_', 'Conv2d_', 'BatchNorm2d_', 'BatchNorm2d_Gamma_', 'BatchNorm2d_Betta_', 'Conv2d_Weights_', 'Conv2d_Bias_', 'MaxPool2d_', 'Linear_Weights_', 'Linear_Bias_', 'Sequential_', 'RNNCell_', 'LstmCell_', 'Embedding_Weights_', 'Sigmoid_', 'Tanh_', 'Relu_']
+        self.default_items = ['Dropout2d_', 'Dropout_', 'Conv2d_', 'BatchNorm2d_', 'BatchNorm1d_Gamma_', 'BatchNorm1d_Betta_', 'BatchNorm2d_Gamma_', 'BatchNorm2d_Betta_', 'Conv2d_Weights_', 'Conv2d_Bias_', 'MaxPool2d_', 'Linear_Weights_', 'Linear_Bias_', 'Sequential_', 'RNNCell_', 'LstmCell_', 'Embedding_Weights_', 'Sigmoid_', 'Tanh_', 'Relu_']
         for one_item in self.default_items:
             self.gen_id[one_item] = 0
     

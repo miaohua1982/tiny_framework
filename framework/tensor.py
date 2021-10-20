@@ -314,7 +314,30 @@ class Tensor(object):
             return new
         
         return Tensor(output)
-    
+        
+    def batchnorm1d(self, num_features, gamma, beta, eps=1e-5, affine=True):
+        # assert self.data.ndim == 4, "the shape of data must be 4 in batchnorm2d"
+        cur_mi = np.zeros(num_features, dtype=np.float32) 
+        cur_var = np.zeros(num_features, dtype=np.float32)
+        cur_var_nobias = np.zeros(num_features, dtype=np.float32)
+        output = np.zeros(self.data.shape, dtype=np.float32)
+        co.batchnorm1d_forward(self.data, cur_mi, cur_var, cur_var_nobias, gamma.numpy(), beta.numpy(), output, eps, affine)
+
+        new = Tensor(output, autograd=True, creator=(self, gamma, beta), create_op='batchnorm1d')
+        new.mu = cur_mi
+        new.var = cur_var
+        new.eps = eps
+        new.affine = affine
+        
+        return new, cur_mi, cur_var_nobias
+
+    def batchnorm1d_eval(self, smi, svar, gamma, beta, eps=1e-5, affine=True):
+        output = np.zeros(self.data.shape, dtype=np.float32)
+        co.batchnorm1d_forward_eval(self.data, smi, svar, gamma.numpy(), beta.numpy(), output, eps, affine)
+
+        new = Tensor(output)
+        return new
+
     def batchnorm2d(self, num_features, gamma, beta, eps=1e-5, affine=True):
         # assert self.data.ndim == 4, "the shape of data must be 4 in batchnorm2d"
         cur_mi = np.zeros(num_features, dtype=np.float32) 
@@ -628,6 +651,29 @@ class Tensor(object):
                 grad_beta = np.zeros(C, dtype=np.float64)
 
                 co.batchnorm2d_backward(input, self.mu, self.var, self.grad.data, gamma, grad_input, grad_gamma, grad_beta, self.eps, self.affine)
+
+                self.creator[0].backward(Tensor(grad_input), self)
+                if self.affine is True:
+                    self.creator[1].backward(Tensor(grad_gamma), self)
+                    self.creator[2].backward(Tensor(grad_beta), self)
+                #N,C,H,W = self.data.shape
+                #x = self.creator[0].data
+                #dy = self.grad.data
+                #mu = self.mu
+                #var = self.var
+                #dvar = np.sum(dy*(x-mu)*(-1./2.)*(var+self.eps)**(-3./2.), axis=(0,2,3), keepdims=True)
+                #dmu = np.sum(dy*-1*(var+self.eps)**(1./2.), axis=(0,2,3), keepdims=True)+dvar*np.sum(-2.*(x-mu), axis=(0,2,3), keepdims=True)*1.0/N/H/W
+                #dx = dy*(var+self.eps)**(1./2.)+dvar*2.0*(x-mu)/N/H/W+dmu*1./N/H/W
+                #self.creator[0].backward(dx, self)
+            elif self.create_op == 'batchnorm1d':
+                N,FF = self.data.shape
+                input = self.creator[0].data
+                gamma = self.creator[1].data
+                grad_input = np.zeros(self.data.shape, dtype=np.float64)
+                grad_gamma = np.zeros(FF, dtype=np.float64)
+                grad_beta = np.zeros(FF, dtype=np.float64)
+
+                co.batchnorm1d_backward(input, self.mu, self.var, self.grad.data, gamma, grad_input, grad_gamma, grad_beta, self.eps, self.affine)
 
                 self.creator[0].backward(Tensor(grad_input), self)
                 if self.affine is True:
