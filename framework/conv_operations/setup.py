@@ -21,12 +21,22 @@ __version__ = "0.0.1"
 #   Sort input source files if you glob sources to ensure bit-for-bit
 #   reproducible builds (https://github.com/pybind/python_example/pull/53)
 
-ext_modules = [
-    Pybind11Extension("conv_operations",
+pyext = Pybind11Extension("conv_operations",
         ["src/operations.cpp"],
         # Example: passing in the version to the compiled code
         define_macros = [('VERSION_INFO', __version__)],
-        ),
+        )
+pyext._add_cflags(["-Xpreprocessor",  "-fopenmp"])
+pyext._add_ldflags(["-lomp"])
+
+
+ext_modules = [
+    #Pybind11Extension("conv_operations",
+    #    ["src/operations.cpp"],
+    #    # Example: passing in the version to the compiled code
+    #    define_macros = [('VERSION_INFO', __version__)],
+    #    ),
+    pyext,
 ]
 
 setup(

@@ -2,6 +2,7 @@
 #include<pybind11/numpy.h>
 #include<cmath>
 #include<iostream>
+#include<omp.h>
 
 namespace py = pybind11;
 
@@ -295,6 +296,7 @@ py::array_t<int> maxpool2d_forward(const py::array_t<float>& feat_input, py::arr
     auto output_max_inds = py::array_t<int>(bs*input_channels*dh*dw*2);
     output_max_inds.resize({bs,input_channels,dh,dw*2});
     auto output_max_pos = output_max_inds.mutable_unchecked<4>();
+#pragma omp parallel for
     for(size_t b = 0; b < bs; ++b)
         for(size_t inns = 0; inns < input_channels; ++inns) {
             for(size_t i = 0; i < h_end; i += stride) {
@@ -319,7 +321,7 @@ py::array_t<int> maxpool2d_forward(const py::array_t<float>& feat_input, py::arr
                 }
             }
         }
-
+    
     return output_max_inds;
 }
 
@@ -578,7 +580,7 @@ void batchnorm1d_channelwise_stats(const py::array_t<float>& input, py::array_t<
 
     for(size_t b = 0; b < bs; ++b)
         for(size_t ll = 0; ll < len; ++ll) {
-            float t = input_data(b, ll)-mi_data(c);
+            float t = input_data(b, ll)-mi_data(ll);
             var_data(ll) += t*t;
         }
 
@@ -631,12 +633,12 @@ void batchnorm1d_forward_eval(const py::array_t<float>& input, const py::array_t
     size_t bs = input_buf.shape[0];
     size_t len = input_buf.shape[1];
 
-    auto input_data = input.unchecked<4>();
+    auto input_data = input.unchecked<2>();
     auto mi_data = mi.unchecked<1>();
     auto var_data = var.unchecked<1>();
     auto gamma_data = gamma.unchecked<1>();
     auto beta_data = beta.unchecked<1>();
-    auto output_data = output.mutable_unchecked<4>();
+    auto output_data = output.mutable_unchecked<2>();
 
     for(size_t b = 0; b < bs; ++b)
         for(size_t ll = 0; ll < len; ++ll) {
@@ -650,7 +652,7 @@ void batchnorm1d_forward_eval(const py::array_t<float>& input, const py::array_t
             float t = (input_data(b, ll)-m)/s;
             if(affine) 
                 t = t*g+be;
-            output_data(b, c, h, w) = t;
+            output_data(b, ll) = t;
         }
 }
 
@@ -734,11 +736,33 @@ void batchnorm1d_backward(const py::array_t<float>& input, const py::array_t<flo
     //dx = dy*(var+self.eps)**(-1./2.)+dvar*2.0*(x-mu)/N/H/W+dmu*1./N/H/W
 }
 
+void test_openmp() 
+{
+    std::cout<< omp_get_num_procs() <<std::endl;
+    int sum = 0;
+    int a[10] = {1,2,3,4,5,6,7,8,9,10};
+    int coreNum = omp_get_num_procs();//获得处理器个数
+    int* sumArray = new int[coreNum]();//对应处理器个数，先生成一个数组
+
+#pragma omp parallel for
+    for (int i=0;i<10;i++)
+    {
+        int k = omp_get_thread_num();//获得每个线程的ID
+        sumArray[k] = sumArray[k]+a[i];
+    }
+    for (int i = 0;i<coreNum;i++)
+        sum = sum + sumArray[i];
+    std::cout<<"sum: "<<sum<<std::endl;
+
+    delete[] sumArray;
+}
+
 PYBIND11_MODULE(conv_operations, m) {
     m.doc() = "conv2d, maxpool2d forward & backward with pybind11";
 
 	m.attr("__version__") = "0.0.1";
     m.def("add", &add, "for test");
+    m.def("test_openmp", &test_openmp, "for omp test");
     
     m.def("batchnorm2d_channelwise_stats", &batchnorm2d_channelwise_stats, "do var & mean for batchnorm2d");
     m.def("batchnorm2d_forward", &batchnorm2d_forward, "A function do batchnorm2d forward");
