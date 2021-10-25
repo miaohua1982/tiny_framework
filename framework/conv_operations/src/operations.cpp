@@ -113,9 +113,9 @@ py::array_t<float> conv2d_forward(const py::array_t<float>& feat_input, const py
     size_t one_bs_kernel = input_channels*kh*kw;
     int h_end = dh+padding*2-kh+1;
     int w_end = dw+padding*2-kw+1;
-#pragma omp parallel for
     for(int b = 0; b < db; ++b) {
         for(int out = 0; out < output_channels; ++out) {
+#pragma omp parallel for
             for(int i = 0; i < h_end; i += stride) {
                 for(int j = 0; j < w_end; j += stride) {
                     float * input_data = &(feat_input_ptr[b*one_bs_data+i*feat_w+j]);
