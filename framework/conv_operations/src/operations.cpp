@@ -394,6 +394,42 @@ py::array_t<float> maxpool2d_backward(const py::array_t<float>& grad_output, con
 
     auto grad = grad_output.unchecked<4>();
     auto output_max_pos = output_max_inds.unchecked<4>();
+
+#pragma omp parallel for
+    for(int b = 0; b < bs; ++b)
+        for(int inns = 0; inns < input_channels; ++inns) {
+            for(int i = 0; i < gh; ++i)
+                for(int j = 0; j < gw; ++j) {
+                    int pos_h = output_max_pos(b, inns, i, j*2);
+                    int pos_w = output_max_pos(b, inns, i, j*2+1);
+                    new_grad(b, inns, pos_h, pos_w) = grad(b, inns, i, j);
+                }
+        }
+
+    return grad_input;
+}
+
+py::array_t<float> maxpool2d_backward_mp(const py::array_t<float>& grad_output, const py::array_t<int>& output_max_inds, size_t dh, size_t dw, int kernel_size, int stride, int padding)
+{
+    py::buffer_info grad_output_buf = grad_output.request();
+    
+    size_t bs = grad_output_buf.shape[0];
+    size_t input_channels = grad_output_buf.shape[1];
+    size_t gh = grad_output_buf.shape[2];
+    size_t gw = grad_output_buf.shape[3];
+    
+    auto grad_input = py::array_t<float>(bs*input_channels*dh*dw);
+    py::buffer_info grad_input_buf = grad_input.request();
+    float * grad_input_ptr = (float*)grad_input_buf.ptr;
+    memset(grad_input_ptr, 0, bs*input_channels*dh*dw*sizeof(float));
+
+    grad_input.resize({bs,input_channels,dh,dw});
+    auto new_grad = grad_input.mutable_unchecked<4>();
+
+    auto grad = grad_output.unchecked<4>();
+    auto output_max_pos = output_max_inds.unchecked<4>();
+
+#pragma omp parallel for
     for(int b = 0; b < bs; ++b)
         for(int inns = 0; inns < input_channels; ++inns) {
             for(int i = 0; i < gh; ++i)
@@ -833,4 +869,5 @@ PYBIND11_MODULE(conv_operations, m) {
     m.def("maxpool2d_forward", &maxpool2d_forward, "A function do maxpool2d forward operation according to input features");
     m.def("maxpool2d_forward_mp", &maxpool2d_forward_mp, "A function do maxpool2d forward operation according to input features");
     m.def("maxpool2d_backward", &maxpool2d_backward, "A function do maxpool2d backward operation according to grad output");
+    m.def("maxpool2d_backward_mp", &maxpool2d_backward_mp, "A function do maxpool2d backward operation according to grad output");
 }
