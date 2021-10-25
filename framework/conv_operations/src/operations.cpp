@@ -275,7 +275,7 @@ py::array_t<float> conv2d_backward_nobias(const py::array_t<float>& grad_output,
     return conv2d_backward(grad_output, feat_input, kernel, bias, kernel_grad, bias_grad, stride, padding);
 }
 
-py::array_t<int> maxpool2d_forward(const py::array_t<float>& feat_input, py::array_t<float>& output_max, int kernel_size, int stride, int padding)
+py::array_t<int> maxpool2d_forward_mp(const py::array_t<float>& feat_input, py::array_t<float>& output_max, int kernel_size, int stride, int padding)
 {
     py::buffer_info feat_input_buf = feat_input.request();
     
@@ -297,6 +297,56 @@ py::array_t<int> maxpool2d_forward(const py::array_t<float>& feat_input, py::arr
     output_max_inds.resize({bs,input_channels,dh,dw*2});
     auto output_max_pos = output_max_inds.mutable_unchecked<4>();
 #pragma omp parallel for
+    for(size_t b = 0; b < bs; ++b)
+        for(size_t inns = 0; inns < input_channels; ++inns) {
+            for(size_t i = 0; i < h_end; i += stride) {
+                size_t pos_h = i/stride;
+                for(size_t j = 0; j < w_end; j += stride) {
+                        size_t pos_w = j/stride;
+                        float max_val = -1000000.0f;
+                        int max_pos_h = -1;
+                        int max_pos_w = -1;
+                        int kh_end = i+kernel_size;
+                        int kw_end = j+kernel_size;
+                        for(int kh = i; kh < kh_end; ++kh)
+                            for(int kw = j; kw < kw_end; ++kw)
+                                if(max_val < feat(b, inns, kh, kw)) {
+                                    max_val = feat(b, inns, kh, kw);
+                                    max_pos_h = kh;
+                                    max_pos_w = kw;
+                                }
+                        output(b,inns,pos_h,pos_w) = max_val;
+                        output_max_pos(b,inns,pos_h,pos_w*2) = max_pos_h;
+                        output_max_pos(b,inns,pos_h,pos_w*2+1) = max_pos_w;
+                }
+            }
+        }
+    
+    return output_max_inds;
+}
+
+py::array_t<int> maxpool2d_forward(const py::array_t<float>& feat_input, py::array_t<float>& output_max, int kernel_size, int stride, int padding)
+{
+    py::buffer_info feat_input_buf = feat_input.request();
+    
+    size_t bs = feat_input_buf.shape[0];
+    size_t input_channels = feat_input_buf.shape[1];
+    size_t h = feat_input_buf.shape[2];
+    size_t w = feat_input_buf.shape[3];
+    size_t h_end = h-kernel_size+1;
+    size_t w_end = w-kernel_size+1;
+
+    size_t dh = (h-kernel_size)/stride+1;
+    size_t dw = (w-kernel_size)/stride+1;
+
+    auto feat = feat_input.unchecked<4>();
+    auto output = output_max.mutable_unchecked<4>();
+
+    // allocate holder for max pool position
+    auto output_max_inds = py::array_t<int>(bs*input_channels*dh*dw*2);
+    output_max_inds.resize({bs,input_channels,dh,dw*2});
+    auto output_max_pos = output_max_inds.mutable_unchecked<4>();
+
     for(size_t b = 0; b < bs; ++b)
         for(size_t inns = 0; inns < input_channels; ++inns) {
             for(size_t i = 0; i < h_end; i += stride) {
@@ -779,7 +829,8 @@ PYBIND11_MODULE(conv_operations, m) {
     m.def("conv2d_forward_nobias", &conv2d_forward_nobias, "A function do conv2d forward(without bias) operation according to input features & kernel");
     m.def("conv2d_backward_withbias", &conv2d_backward_withbias, "A function do conv2d backward(with bias) operation according to grad output");
     m.def("conv2d_backward_nobias", &conv2d_backward_nobias, "A function do conv2d backward(without bias) operation according to grad output");
+    
     m.def("maxpool2d_forward", &maxpool2d_forward, "A function do maxpool2d forward operation according to input features");
+    m.def("maxpool2d_forward_mp", &maxpool2d_forward_mp, "A function do maxpool2d forward operation according to input features");
     m.def("maxpool2d_backward", &maxpool2d_backward, "A function do maxpool2d backward operation according to grad output");
-
 }

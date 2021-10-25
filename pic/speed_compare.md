@@ -15,21 +15,14 @@ output_max_inds =  co.maxpool2d_forward(input_t.detach().numpy(), output_max, 2,
 
 # forward test
 # %timeit output = max_pool2d_t(input_t)
-# %timeit output_max_inds =  co.maxpool2d_forward(input, output_max, 2, 2, 0)
+# %timeit output_max_inds =  co.maxpool2d_forward(input_t.detach().numpy(), output_max, 2, 2, 0)
 
 %%timeit 
 input_t.grad = None
 input_t.retain_grad()   # to enable to access grad of non-leaf node's grad
 output = max_pool2d_t(input_t)
 output = output.flatten()
-f = output.sum()
-f.backward()
-
-
-print(input_t.grad)
-
-
-%%timeit 
+f = output.sum()exit
 output_max = np.zeros((1,1,2,2), dtype=np.float32)
 output_max_inds =  co.maxpool2d_forward(input, output_max, 2, 2, 0)
 grad_output = np.ones(output_max.shape, dtype=np.float32)

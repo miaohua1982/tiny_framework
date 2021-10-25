@@ -9,6 +9,7 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 from pybind11 import get_cmake_dir
 
 import sys
+import os
 
 __version__ = "0.0.1"
 
@@ -26,8 +27,16 @@ pyext = Pybind11Extension("conv_operations",
         # Example: passing in the version to the compiled code
         define_macros = [('VERSION_INFO', __version__)],
         )
-pyext._add_cflags(["-Xpreprocessor",  "-fopenmp"])
-pyext._add_ldflags(["-lomp"])
+# mac os needs following 3 flags
+# pyext._add_cflags(["-Xpreprocessor", "-fopenmp"])
+# pyext._add_ldflags(["-lomp"])
+
+# linux needs following 3 flags
+
+if os.sys.platform == 'linux':
+    pyext._add_cflags(["-fopenmp"])
+    pyext._add_ldflags(["-lstdc++"])
+    pyext._add_ldflags(["-fopenmp"])   # ld also needs the flag openmp, not lomp
 
 
 ext_modules = [
