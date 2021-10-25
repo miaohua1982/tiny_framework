@@ -117,7 +117,7 @@ def my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path):
 
 if __name__ == '__main__':
     batch_size = 32
-    epochs = 5
+    epochs = 2
     alpha = 0.001
     classes_num = 10
     mnist_ds_path = 'datasets'
