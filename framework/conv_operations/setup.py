@@ -39,6 +39,7 @@ if os.sys.platform == 'linux':
     pyext._add_ldflags(["-fopenmp"])   # ld also needs the flag openmp, not lomp
 
 
+
 ext_modules = [
     #Pybind11Extension("conv_operations",
     #    ["src/operations.cpp"],
