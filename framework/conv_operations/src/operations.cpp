@@ -97,6 +97,8 @@ py::array_t<float> conv2d_forward(const py::array_t<float>& feat_input, const py
         size_t feat_1bs = input_channels*dh*dw;
         size_t img_size = dh*dw;
         size_t padding_zero = padding*feat_w;
+    
+#pragma omp parallel for
         for(int i = 0; i < db; ++i)
             for(int j = 0; j < input_channels; ++j) {
                 for(int k = 0; k < dh; ++k) {
@@ -113,6 +115,7 @@ py::array_t<float> conv2d_forward(const py::array_t<float>& feat_input, const py
     size_t one_bs_kernel = input_channels*kh*kw;
     int h_end = dh+padding*2-kh+1;
     int w_end = dw+padding*2-kw+1;
+
 #pragma omp parallel for
     for(int b = 0; b < db; ++b) {
         for(int out = 0; out < output_channels; ++out) {
@@ -249,6 +252,7 @@ py::array_t<float> conv2d_backward(const py::array_t<float>& grad_output, const 
         size_t input_grad_img_size = dh*dw;
         size_t input_1bs = input_channels*input_grad_img_size;
         size_t padding_size = padding*dw;
+#pragma omp parallel for
         for(int i = 0; i < bs; ++i)
             for(int j = 0; j < input_channels; ++j) {
                 for(int k = 0; k < grad_h; ++k) {
