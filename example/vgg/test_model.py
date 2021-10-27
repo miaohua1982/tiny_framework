@@ -61,6 +61,7 @@ def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
     learning_rate = 1e-4  # 学习率
 
     if use_tiny_framework:
+        print('We train vgg by tiny framework...')
         if model_path is None:
             net = VGG16(classes_num)
             copy_weights_from_pretrained(net)
@@ -71,6 +72,7 @@ def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
         # optimizer = SGD(net.get_parameters(), lr=learning_rate)
         optimizer = Adam(net.get_parameters(), lr=learning_rate)
     else:
+        print('We train vgg by torch...')
         if model_path is None:
             net = VGG16_T(classes_num)
         else:
@@ -105,8 +107,8 @@ def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
             running_loss += loss.item()
             running_acc += acc.item()
 
-            total_loss = loss.item()
-            total_acc = acc.item()
+            total_loss += loss.item()
+            total_acc += acc.item()
 
             if i % 20 == 19 and spot_plot:  # print loss every 20 mini batch
                 print('[%s] [%d, %5d] loss: %.5f, accu: %.5f' %

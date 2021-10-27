@@ -42,6 +42,8 @@ the following 5 epochs are pytorch version
 ![pytorch vgg on cifar10](pic/vgg_on_cifar10_pytorch.png)  
   
 the following 5 epochs are mine  
+![tiny framework vgg on cifar10](pic/vgg_on_cifar10_tiny.png)  
+
 
 
 3.We resize cifar10(only have 32*32 resolution) to 224*224 by skimage.transform.resize before put it into AlexNet, because AlexNet has 11*11 & 5*5 etc. big cnn kernel, cifar10 is too small to do that.  
