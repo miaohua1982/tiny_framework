@@ -230,7 +230,12 @@ py::array_t<float> conv2d_backward(const py::array_t<float>& grad_output, const 
 
     // grad for kernel & input data
 #pragma omp parallel for
-    for(size_t b = 0; b < bs; ++b) {
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
+    for(size_t b = 0; b < bs; ++b)
+#endif
+    {
         for(size_t out = 0; out < output_channels; ++out)
             for(size_t i = 0; i < dh-kh+1; i += stride)
                 for(size_t j = 0; j < dw-kw+1; j += stride) {
@@ -303,7 +308,11 @@ py::array_t<int> maxpool2d_forward_mp(const py::array_t<float>& feat_input, py::
     output_max_inds.resize({bs,input_channels,dh,dw*2});
     auto output_max_pos = output_max_inds.mutable_unchecked<4>();
 #pragma omp parallel for
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
     for(size_t b = 0; b < bs; ++b)
+#endif
         for(size_t inns = 0; inns < input_channels; ++inns) {
             for(size_t i = 0; i < h_end; i += stride) {
                 size_t pos_h = i/stride;

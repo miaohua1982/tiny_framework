@@ -33,7 +33,7 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship'
 
 
 def accu(pred, target):
-    p = t.argmax(pred, dim=1)
+    p = pred.argmax(dim=1)
     return (p == target).float().mean()
 
 def model_test(net, criterion, use_tiny_framework):

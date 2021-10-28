@@ -8,7 +8,6 @@ from setuptools import setup
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 from pybind11 import get_cmake_dir
 
-import sys
 import os
 
 __version__ = "0.0.1"
@@ -27,18 +26,20 @@ pyext = Pybind11Extension("conv_operations",
         # Example: passing in the version to the compiled code
         define_macros = [('VERSION_INFO', __version__)],
         )
-# mac os needs following 3 flags
-# pyext._add_cflags(["-Xpreprocessor", "-fopenmp"])
-# pyext._add_ldflags(["-lomp"])
 
 # linux needs following 3 flags
-
-if os.sys.platform == 'linux':
+if 'linux' in os.sys.platform:
     pyext._add_cflags(["-fopenmp"])
     pyext._add_ldflags(["-lstdc++"])
     pyext._add_ldflags(["-fopenmp"])   # ld also needs the flag openmp, not lomp
-
-
+# windows
+elif os.sys.platform == 'win32':
+    pyext._add_cflags(["/DWIN_OMP"])
+    pyext._add_cflags(["/openmp"])
+# mac os needs following 3 flags
+elif 'darwin' in os.sys.platform:
+    pyext._add_cflags(["-Xpreprocessor", "-fopenmp"])
+    pyext._add_ldflags(["-lomp"])
 
 ext_modules = [
     #Pybind11Extension("conv_operations",
@@ -55,7 +56,7 @@ setup(
     author="victor miao",
     author_email="miaohua1982@gmail.com",
     url="https://github.com/miaohua1982/tiny_framework",
-    description="A c++ version conv2d/maxpool2d/batchnorm2d operations project using pybind11",
+    description="A c++ version conv2d/maxpool2d/batchnorm2d operations project using pybind11 & openmp",
     long_description="",
     ext_modules=ext_modules,
     extras_require={"test": "pytest"},

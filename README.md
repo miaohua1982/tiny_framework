@@ -5,7 +5,8 @@ The repo also includes some manual scripts for nn teaching under folder *manual*
 
 I rewrite conv & max pool & batchnorm operation in c++, which speedup the forward&backward almost 100 times.
 
-To install the module conv_operations you should have [pybind11](https://github.com/pybind/pybind11/tree/stable) installed.
+To install the module conv_operations you should have [pybind11](https://github.com/pybind/pybind11/tree/stable) installed and 
+[openmp](https://www.openmp.org/) on linux & mac os, at least vs2015(add /openmp compiler flag) on windows
 
 Then what you need to do is going into the **framework** folder and run the following code:
 

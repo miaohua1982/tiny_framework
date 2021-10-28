@@ -33,7 +33,7 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship'
 
 
 def accu(pred, target):
-    p = t.argmax(pred, dim=1)
+    p = pred.argmax(dim=1)
     return (p == target).float().mean()
 
 def model_test(net, criterion, use_tiny_framework):
@@ -50,15 +50,15 @@ def model_test(net, criterion, use_tiny_framework):
         loss = criterion(outputs, labels)
         # acc
         acc = accu(outputs, labels)
-        # 打印loss
+        # loss & acc
         running_loss += loss.item()
         running_acc += acc.item()
 
     print('In test set loss: %.5f, accu: %.5f' % (running_loss/len(testloader), running_acc/len(testloader)))
 
 def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
-    epochs = 10  # 训练次数
-    learning_rate = 1e-4  # 学习率
+    epochs = 10 
+    learning_rate = 1e-4  # learning rate
 
     if use_tiny_framework:
         print('We train vgg by tiny framework...')
@@ -78,10 +78,10 @@ def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
         else:
             net = t.load(model_path)
 
-        criterion = nn.CrossEntropyLoss() # 交叉熵损失
-        optimizer = optim.Adam(net.parameters(), lr=learning_rate) # Adam优化器
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(net.parameters(), lr=learning_rate)
 
-    for epoch in range(epochs):  # 迭代
+    for epoch in range(epochs):
         running_loss = 0.0
         running_acc = 0.0
 
@@ -93,7 +93,7 @@ def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
                 inputs = Tensor(inputs.detach().cpu().numpy(), autograd=True)
                 labels = Tensor(labels.detach().cpu().numpy(), autograd=True)
             
-            # 初始化梯度
+            # clear previous grad
             optimizer.zero_grad()
 
             outputs = net(inputs)  # outputs: [batch_size, 10]
@@ -103,7 +103,7 @@ def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
             optimizer.step()
 
             acc = accu(outputs, labels)
-            # 打印loss
+            # loss & acc
             running_loss += loss.item()
             running_acc += acc.item()
 
@@ -115,7 +115,7 @@ def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
                       (time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time())), epoch+1, i+1, running_loss/20.0, running_acc/20.0))
                 running_loss = 0.0
                 running_acc = 0.0
-        print('[%d, %5d] loss: %.5f, accu: %.5f' % (epoch+1, epochs, total_loss/len(trainloader), total_acc/len(trainloader)))
+        print('[%s] [%d, %5d] loss: %.5f, accu: %.5f' % (time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time())), epoch+1, epochs, total_loss/len(trainloader), total_acc/len(trainloader)))
         model_test(net, criterion, use_tiny_framework)
         
         if use_tiny_framework:
@@ -126,7 +126,7 @@ def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
     print('Finished Training')
 
 
-# 我们测试数据是CIFAR10，图像大小是 32*32*3
+# dataset is cifar10, resolution is 32*32*3
 if __name__ == '__main__':
     classes_num = 10
     use_tiny_framework = False
