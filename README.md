@@ -47,5 +47,5 @@ the following 5 epochs are mine
 
 
 
-3.We resize cifar10(only have 32*32 resolution) to 224*224 by skimage.transform.resize before put it into AlexNet, because AlexNet has 11*11 & 5*5 etc. big cnn kernel, cifar10 is too small to do that.  
+3.We resize cifar10(only have $32 \times 32$ resolution) to $224 \times 224$ by skimage.transform.resize before put it into AlexNet, because AlexNet has $11 \times 11$ & $5 \times 5$ etc. big cnn kernel, cifar10 is too small to do that.  
 
