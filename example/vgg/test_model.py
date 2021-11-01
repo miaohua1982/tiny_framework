@@ -20,7 +20,7 @@ from torch import nn
 """
 1. load CIFAR10 datasets, 3*32*32 for one picture
 """
-ds_path = '/home/miaohua/Documents/Datasets'
+ds_path = 'E:/Datasets'
 batch_size = 16
 transform = transforms.Compose(
     [transforms.ToTensor(),
@@ -132,4 +132,6 @@ if __name__ == '__main__':
     use_tiny_framework = False
     spot_plot = False
     model_path = None
+    model_train(classes_num, use_tiny_framework, spot_plot, model_path)
+    use_tiny_framework = True
     model_train(classes_num, use_tiny_framework, spot_plot, model_path)
