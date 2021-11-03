@@ -20,7 +20,7 @@ from torch import nn
 """
 1. load CIFAR10 datasets, 3*32*32 for one picture
 """
-ds_path = 'E:/Datasets'
+ds_path = '/home/miaohua/Documents/Datasets'
 batch_size = 16
 transform = transforms.Compose(
     [transforms.ToTensor(),
@@ -72,7 +72,7 @@ def model_train(classes_num, use_tiny_framework, spot_plot, model_path):
         # optimizer = SGD(net.get_parameters(), lr=learning_rate)
         optimizer = Adam(net.get_parameters(), lr=learning_rate)
     else:
-        print('We train vgg by torch...')
+        print('We train vgg by pytorch...')
         if model_path is None:
             net = VGG16_T(classes_num)
         else:

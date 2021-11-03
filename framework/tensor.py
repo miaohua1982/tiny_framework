@@ -316,7 +316,7 @@ class Tensor(object):
         return Tensor(output)
         
     def batchnorm1d(self, num_features, gamma, beta, eps=1e-5, affine=True):
-        # assert self.data.ndim == 4, "the shape of data must be 4 in batchnorm2d"
+        # assert self.data.ndim == 2, "the shape of data must be 4 in batchnorm1d"
         cur_mi = np.zeros(num_features, dtype=np.float32) 
         cur_var = np.zeros(num_features, dtype=np.float32)
         cur_var_nobias = np.zeros(num_features, dtype=np.float32)

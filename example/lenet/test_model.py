@@ -115,6 +115,7 @@ def my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path):
     # train
     train(epochs, train_dataloader, test_dataloader, lenet, criterion, optimizer, True)
 
+
 if __name__ == '__main__':
     batch_size = 32
     epochs = 2

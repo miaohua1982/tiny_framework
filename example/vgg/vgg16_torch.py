@@ -9,6 +9,7 @@ class VGG16(nn.Module):
         # 100% 还原特征提取层，也就是5层共13个卷积层
         # conv1 1/2
         self.conv1_1 = nn.Conv2d(3, 64, kernel_size=3, padding=1)
+        # self.bn1 = nn.BatchNorm2d(64)  well, th bn layer does not do any good to speedup to get to same accuracy while model without it
         self.relu1_1 = nn.ReLU(inplace=True)
         self.conv1_2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
         self.relu1_2 = nn.ReLU(inplace=True)
@@ -55,10 +56,17 @@ class VGG16(nn.Module):
             pretrained_params = pretrained_model.state_dict()
             keys = list(pretrained_params.keys())
             new_dict = {}
+            pretrained_idx = 0
             for index, key in enumerate(self.state_dict().keys()):
-                new_dict[key] = pretrained_params[keys[index]]
+                if 'bn' in key:
+                    new_dict[key] = self.state_dict()[key]
+                else: 
+                    new_dict[key] = pretrained_params[keys[pretrained_idx]]
+                    pretrained_idx += 1
+                #new_dict[key] = pretrained_params[keys[index]]
             self.load_state_dict(new_dict)
-
+            # print(self.conv1_1.bias)
+            # print(pretrained_params['features.0.bias'])
         # 但是至于后面的全连接层，根据实际场景，就得自行定义自己的FC层了。
         self.classifier = nn.Sequential(  # 定义自己的分类层
             # 原始模型vgg16输入image大小是224 x 224

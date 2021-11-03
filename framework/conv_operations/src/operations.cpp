@@ -515,7 +515,13 @@ void batchnorm2d_forward(const py::array_t<float>& input, py::array_t<float>& mi
     auto beta_data = beta.unchecked<1>();
     auto output_data = output.mutable_unchecked<4>();
 
-    for(size_t b = 0; b < bs; ++b) {
+#pragma omp parallel for
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
+    for(size_t b = 0; b < bs; ++b)
+#endif
+    {
         for(size_t c = 0; c < channels; ++c) {
             float m = mi_data(c);
             float v = var_data(c);
@@ -532,7 +538,12 @@ void batchnorm2d_forward(const py::array_t<float>& input, py::array_t<float>& mi
         }
     }
 
+#pragma omp parallel for
+#ifdef WIN_OMP
+    for(int c = 0; c < channels; ++c)
+#else
     for(size_t c = 0; c < channels; ++c)
+#endif
         var_nobias_data(c) = var_data(c)*num/(num-1.0f);  // var's no bias calc
 }
 
@@ -552,7 +563,12 @@ void batchnorm2d_forward_eval(const py::array_t<float>& input, const py::array_t
     auto beta_data = beta.unchecked<1>();
     auto output_data = output.mutable_unchecked<4>();
 
+#pragma omp parallel for
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
     for(size_t b = 0; b < bs; ++b)
+#endif
         for(size_t c = 0; c < channels; ++c) {
             float m = mi_data(c);
             float v = var_data(c);
@@ -598,8 +614,14 @@ void batchnorm2d_backward(const py::array_t<float>& input, const py::array_t<flo
         dvar_data(c) = 0.0;
         dmu_data(c) = 0.0;
     }
+
     // dvar, dgamma, dbeta
+#pragma omp parallel for
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
     for(size_t b = 0; b < bs; ++b)
+#endif
         for(size_t c = 0; c < channels; ++c) {
             float m = mi_data(c);
             float v = var_data(c);
@@ -625,7 +647,12 @@ void batchnorm2d_backward(const py::array_t<float>& input, const py::array_t<flo
         }
 
     // dmu
+#pragma omp parallel for
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
     for(size_t b = 0; b < bs; ++b)
+#endif
         for(size_t c = 0; c < channels; ++c) {
             float m = mi_data(c);
             float v = var_data(c);
@@ -642,7 +669,12 @@ void batchnorm2d_backward(const py::array_t<float>& input, const py::array_t<flo
         }  
 
     // dx
+#pragma omp parallel for
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
     for(size_t b = 0; b < bs; ++b)
+#endif
         for(size_t c = 0; c < channels; ++c) {
             float m = mi_data(c);
             float v = var_data(c);
@@ -707,7 +739,13 @@ void batchnorm1d_forward(const py::array_t<float>& input, py::array_t<float>& mi
     auto beta_data = beta.unchecked<1>();
     auto output_data = output.mutable_unchecked<2>();
 
-    for(size_t b = 0; b < bs; ++b) {
+#pragma omp parallel for
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
+    for(size_t b = 0; b < bs; ++b)
+#endif
+    {
         for(size_t ll = 0; ll < len; ++ll) {
             float m = mi_data(ll);
             float v = var_data(ll);
@@ -741,7 +779,12 @@ void batchnorm1d_forward_eval(const py::array_t<float>& input, const py::array_t
     auto beta_data = beta.unchecked<1>();
     auto output_data = output.mutable_unchecked<2>();
 
+#pragma omp parallel for
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
     for(size_t b = 0; b < bs; ++b)
+#endif
         for(size_t ll = 0; ll < len; ++ll) {
             float m = mi_data(ll);
             float v = var_data(ll);
@@ -784,8 +827,14 @@ void batchnorm1d_backward(const py::array_t<float>& input, const py::array_t<flo
         dvar_data(ll) = 0.0;
         dmu_data(ll) = 0.0;
     }
+
     // dvar, dgamma, dbeta
+#pragma omp parallel for
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
     for(size_t b = 0; b < bs; ++b)
+#endif
         for(size_t ll = 0; ll < len; ++ll) {
             float m = mi_data(ll);
             float v = var_data(ll);
@@ -807,7 +856,12 @@ void batchnorm1d_backward(const py::array_t<float>& input, const py::array_t<flo
         }
 
     // dmu
+#pragma omp parallel for
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
     for(size_t b = 0; b < bs; ++b)
+#endif
         for(size_t ll = 0; ll < len; ++ll) {
             float m = mi_data(ll);
             float v = var_data(ll);
@@ -821,7 +875,12 @@ void batchnorm1d_backward(const py::array_t<float>& input, const py::array_t<flo
         }  
 
     // dx
+#pragma omp parallel for
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
     for(size_t b = 0; b < bs; ++b)
+#endif
         for(size_t ll = 0; ll < len; ++ll) {
             float m = mi_data(ll);
             float v = var_data(ll);
