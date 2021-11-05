@@ -118,7 +118,7 @@ def my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path):
 
 if __name__ == '__main__':
     batch_size = 32
-    epochs = 2
+    epochs = 5
     alpha = 0.001
     classes_num = 10
     mnist_ds_path = 'datasets'
@@ -126,7 +126,7 @@ if __name__ == '__main__':
     # in 2 epochs, it can reach
     # in epoch 0, dura 17.3718 sec, train loss: 1.4284, train acc: 0.5847, test loss: 0.2987, test acc: 0.9130
     # in epoch 1, dura 16.7949 sec, train loss: 0.2464, train acc: 0.9236, test loss: 0.1629, test acc: 0.9519
-    pytorch_train(batch_size, epochs, alpha, classes_num, mnist_ds_path)
+    # pytorch_train(batch_size, epochs, alpha, classes_num, mnist_ds_path)
     # in 2 epochs, it can reach
     # in epoch 0, dura 11579.6827 sec, train loss: 0.2233, train acc: 0.9294, test loss: 0.0703, test acc: 0.9769
     # in epoch 1, dura 11416.8372 sec, train loss: 0.0678, train acc: 0.9789, test loss: 0.0492, test acc: 0.9845

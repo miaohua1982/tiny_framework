@@ -472,7 +472,12 @@ void batchnorm2d_channelwise_stats(const py::array_t<float>& input, py::array_t<
     auto mi_data = mi.mutable_unchecked<1>();
     auto var_data = var.mutable_unchecked<1>();
 
+#pragma omp parallel for
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
     for(size_t b = 0; b < bs; ++b)
+#endif
         for(size_t c = 0; c < channels; ++c) {
             for(size_t h = 0; h < dh; ++h)
                 for(size_t w = 0; w < dw; ++w)
@@ -482,7 +487,12 @@ void batchnorm2d_channelwise_stats(const py::array_t<float>& input, py::array_t<
     for(size_t c = 0; c < channels; ++c)
         mi_data(c) /= num;
 
+#pragma omp parallel for
+#ifdef WIN_OMP
+    for(int b = 0; b < bs; ++b)
+#else
     for(size_t b = 0; b < bs; ++b)
+#endif
         for(size_t c = 0; c < channels; ++c) {
             for(size_t h = 0; h < dh; ++h)
                 for(size_t w = 0; w < dw; ++w) { 
@@ -616,13 +626,14 @@ void batchnorm2d_backward(const py::array_t<float>& input, const py::array_t<flo
     }
 
     // dvar, dgamma, dbeta
-#pragma omp parallel for
-#ifdef WIN_OMP
-    for(int b = 0; b < bs; ++b)
-#else
     for(size_t b = 0; b < bs; ++b)
+//#pragma omp parallel for
+#ifdef WIN_OMP
+        for(int c = 0; c < channels; ++c) 
+#else
+        for(size_t c = 0; c < channels; ++c) 
 #endif
-        for(size_t c = 0; c < channels; ++c) {
+        {
             float m = mi_data(c);
             float v = var_data(c);
             float ga = gamma_data(c);
@@ -647,13 +658,14 @@ void batchnorm2d_backward(const py::array_t<float>& input, const py::array_t<flo
         }
 
     // dmu
+    for(size_t b = 0; b < bs; ++b)
 #pragma omp parallel for
 #ifdef WIN_OMP
-    for(int b = 0; b < bs; ++b)
+        for(int c = 0; c < channels; ++c)
 #else
-    for(size_t b = 0; b < bs; ++b)
+        for(size_t c = 0; c < channels; ++c)
 #endif
-        for(size_t c = 0; c < channels; ++c) {
+        {
             float m = mi_data(c);
             float v = var_data(c);
             float ga = gamma_data(c);
@@ -669,7 +681,7 @@ void batchnorm2d_backward(const py::array_t<float>& input, const py::array_t<flo
         }  
 
     // dx
-#pragma omp parallel for
+//#pragma omp parallel for
 #ifdef WIN_OMP
     for(int b = 0; b < bs; ++b)
 #else
