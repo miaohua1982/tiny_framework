@@ -8,6 +8,7 @@ from framework.tensor import Tensor
 from framework.rnn import RNN_Model
 from framework.loss import CrossEntropyLoss
 from framework.optimizer import SGD
+from framework.schedule_lr import StepLR
 
 def train(epoches, datasets, model, criterion, optim, hidden_size):
     batch_size = 32
@@ -21,7 +22,8 @@ def train(epoches, datasets, model, criterion, optim, hidden_size):
     n_bptt = int(((n_batches-1) / bptt))
     input_batches = input_batched_indices[:n_bptt*bptt].reshape(n_bptt, bptt, batch_size)
     target_batches = target_batched_indices[:n_bptt*bptt].reshape(n_bptt, bptt, batch_size)
-    
+    scheduler = StepLR(optim, step_size=1, gamma=0.1)
+
     for epoch in range(epoches):
         total_acc = 0
         total_loss = 0
@@ -53,7 +55,8 @@ def train(epoches, datasets, model, criterion, optim, hidden_size):
             cur_losses.backward()
             optim.step()
 
-        optim.decay_lr()
+        #optim.decay_lr()
+        scheduler.step()
             
         print('In epoch %d, nn gets loss %.4f, acc %.4f' % (epoch, total_loss/n_bptt, total_acc/n_bptt))
 

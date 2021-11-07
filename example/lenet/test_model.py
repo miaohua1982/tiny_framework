@@ -13,6 +13,7 @@ from torch.nn import functional as F
 from framework.loss import CrossEntropyLoss
 from framework.optimizer import SGD, Adam, RMSprop, MoMentumSGD
 from framework.tensor import Tensor
+from framework.schedule_lr import StepLR
 from lenet_tiny import LeNet
 from lenet_torch import LeNet as LeNet_T
 
@@ -110,15 +111,16 @@ def my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path):
     # optimizer = MoMentumSGD(lenet.get_parameters(), lr=alpha, momentum=0.9)
     # optimizer = Adam(lenet.get_parameters(), lr=alpha)
     optimizer = RMSprop(lenet.get_parameters(), lr=alpha)
+    # scheduler = StepLR(optimizer, step_size=5, gamma=0.8)
+
     # data
     train_dataloader, test_dataloader = data_loader(mnist_ds_path, batch_size)
     # train
     train(epochs, train_dataloader, test_dataloader, lenet, criterion, optimizer, True)
 
-
 if __name__ == '__main__':
     batch_size = 32
-    epochs = 5
+    epochs = 2
     alpha = 0.001
     classes_num = 10
     mnist_ds_path = 'datasets'
@@ -134,6 +136,8 @@ if __name__ == '__main__':
     # after rewrite the core function(conv2d, max pool 2d) in cpp, the speed is as followings:
     # in epoch 0, dura 124.6791 sec, train loss: 0.2207, train acc: 0.9299, test loss: 0.0691, test acc: 0.9776
     # in epoch 1, dura 124.7624 sec, train loss: 0.0656, train acc: 0.9799, test loss: 0.0456, test acc: 0.9854
+    if 'darwin' in os.sys.platform:
+        os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE" # on mac, it may hint: Initializing libomp.dylib, but found libiomp5.dylib already initialized.
     my_train(batch_size, epochs, alpha, classes_num, mnist_ds_path)
     # I have find that if I implement conv\max pool in cpp by double not float, the accuracy will a little higher
     
