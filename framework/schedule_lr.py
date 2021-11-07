@@ -1,4 +1,3 @@
-from collections import Counter
 
 class LRScheduler(object):
     def __init__(self, optimizer):
